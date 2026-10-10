@@ -1,0 +1,33 @@
+name: Verify and build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install portable Lua test runtime
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Parse Luau-compatible source
+        run: lua5.4 tests/syntax.lua
+      - name: Test domain and service state transitions
+        run: |
+          lua5.4 tests/domain.lua
+          lua5.4 tests/services.lua
+      - name: Build and inspect Roblox place
+        run: |
+          python3 tools/build_place.py
+          python3 tests/place.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HarborCity-place
+          path: |
+            dist/HarborCity.rbxlx
+            dist/build-manifest.json
+            docs/TESTOVANI.md
+          retention-days: 30

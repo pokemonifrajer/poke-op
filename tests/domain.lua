@@ -1,0 +1,25 @@
+local Config=dofile("src/shared/Config.lua")
+local D=dofile("src/shared/Domain.lua")
+local passed=0
+local function test(name,fn) fn(); passed=passed+1; print("PASS "..name) end
+local function eq(a,b) assert(a==b,tostring(a).." ~= "..tostring(b)) end
+local function fresh() return D.default(Config) end
+test("new profile schema and independent tables",function() local a,b=fresh(),fresh(); assert(D.validate(a,Config)); a.Cars.sport=true; eq(b.Cars.sport,nil) end)
+test("reject NaN infinity negative fractional and non-numeric money",function() for _,v in ipairs({0/0,math.huge,-1,1.5,"30",false}) do local d=fresh(); assert(not D.transfer(d,"deposit",v,Config,1)); eq(d.Cash,1500); eq(d.Bank,5000) end end)
+test("bank transfers conserve total currency",function() local d=fresh(); for i=1,1000 do local before=d.Cash+d.Bank; D.transfer(d,i%2==0 and "deposit" or "withdraw",i%50+1,Config,i); eq(d.Cash+d.Bank,before); assert(d.Cash>=0 and d.Bank>=0) end end)
+test("insufficient cash leaves profile unchanged",function() local d=fresh(); assert(not D.transfer(d,"deposit",1501,Config,1)); eq(d.Cash,1500); eq(d.Bank,5000); eq(#d.Transactions,0) end)
+test("transfer destination cap is enforced",function() local d=fresh(); d.Bank=Config.MaxBalance; assert(not D.transfer(d,"deposit",1,Config,1)); eq(d.Cash,1500) end)
+test("invalid direction rejected",function() local d=fresh(); assert(not D.transfer(d,"hack",100,Config,1)); eq(d.Cash,1500) end)
+test("reward replay is rejected",function() local d=fresh(); assert(D.reward(d,3800,"same","Bank",Config,1)); assert(not D.reward(d,3800,"same","Bank",Config,2)); eq(d.Cash,5300) end)
+test("reward overflow rejected",function() local d=fresh(); d.Cash=Config.MaxBalance; assert(not D.reward(d,1,"id","Overflow",Config,1)); eq(#d.RewardIds,0) end)
+test("cannot buy free police vehicle",function() local d=fresh(); assert(not D.buyCar(d,"patrol",Config,1)); eq(d.Cars.patrol,nil) end)
+test("buy vehicle exactly once at server catalog price",function() local d=fresh(); d.Bank=20000; assert(D.buyCar(d,"sport",Config,1)); eq(d.Bank,7500); assert(d.Cars.sport); assert(not D.buyCar(d,"sport",Config,2)); eq(d.Bank,7500) end)
+test("unknown vehicle rejected",function() local d=fresh(); assert(not D.buyCar(d,"admincar",Config,1)); eq(d.Bank,5000) end)
+test("crime never lowers existing wanted level",function() local d=fresh(); D.crime(d,4,100); D.crime(d,2,110); eq(d.Wanted,4); D.crime(d,9,111); eq(d.Wanted,5) end)
+test("wanted decays only outside pursuit and on interval",function() local d=fresh(); D.crime(d,3,100); D.decay(d,134,false,35); eq(d.Wanted,3); D.decay(d,135,true,35); D.decay(d,169,false,35); eq(d.Wanted,3); D.decay(d,170,false,35); eq(d.Wanted,2) end)
+test("jail sentence records server time and clears wanted",function() local d=fresh(); D.crime(d,3,100); eq(D.jail(d,100,Config),190); eq(d.Wanted,0); eq(d.JailUntil,190) end)
+test("transaction history remains bounded",function() local d=fresh(); for i=1,70 do D.log(d,"event",i,i) end; eq(#d.Transactions,25); eq(d.Transactions[1].Amount,70) end)
+test("save snapshot is deeply independent",function() local d=fresh(); D.log(d,"test",10,1); local s=D.copy(d); d.Transactions[1].Amount=20; d.Cars.sport=true; eq(s.Transactions[1].Amount,10); eq(s.Cars.sport,nil) end)
+test("corrupt saves rejected",function() for _,field in ipairs({"Cash","Bank","Wanted","JailUntil","Cars","Transactions","Colors","RewardIds","Home","LastCrime","LastDecay"}) do local d=fresh(); d[field]="corrupt"; assert(not D.validate(d,Config),field) end end)
+test("unknown schema fails closed",function() local d=fresh(); d.Version=99; assert(not D.validate(d,Config)) end)
+print("DOMAIN TESTS: "..passed.." passed; Roblox engine tests NOT RUN")
