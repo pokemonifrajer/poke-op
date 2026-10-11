@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Domain = require(Shared.Domain)
+local Design = require(Shared.VehicleDesign)
 local Util = require(script.Parent.Util)
 local Guard = require(script.Parent.Guard)
 local Vehicle = {Cars = {}, ByPlayer = {}}
@@ -33,31 +34,18 @@ function Vehicle:spawn(player, id)
     for _, car in pairs(self.Cars) do if car ~= old and (car.Base.Position - pad.Position).Magnitude < 15 then return false, "Výjezd je obsazený." end end
     if old then self:destroy(old) end
     local model = Instance.new("Model"); model.Name = spec.Name; model:SetAttribute("OwnerId", player.UserId)
-    local bodyColor = palette[data.Colors[id] or 1]
+    local bodyColor = data.Colors[id] and palette[data.Colors[id]] or Color3.fromRGB(table.unpack(spec.Color))
     if spec.Police then bodyColor = Color3.fromRGB(29,42,60) end
     local width,length=spec.Width or 6.7,spec.Length or 12
     local sx,sz=width/6.7,length/12
     local base = Util.part(model, "Chassis", Vector3.new(width,1.5,length), CFrame.new(pad.Position + Vector3.new(0,1.8,0)), bodyColor, false)
     base.CustomPhysicalProperties = PhysicalProperties.new(1.1,0.25,0.05,1,1)
     model.PrimaryPart = base
-    welded(model,base,"Hood",Vector3.new(width*0.97,0.8,length*0.32),CFrame.new(0,0.8,-length*0.31),bodyColor)
-    welded(model,base,"Roof",Vector3.new(width*0.82,0.45,length*0.45),CFrame.new(0,3,length*0.04),bodyColor)
-    local windshield = welded(model,base,"Windshield",Vector3.new(width*0.81,2.1,0.2),CFrame.new(0,1.9,-length*0.175)*CFrame.Angles(math.rad(-14),0,0),Color3.fromRGB(86,130,146))
-    windshield.Material = Enum.Material.Glass; windshield.Transparency = 0.35
-    for _, x in ipairs({-2.85,2.85}) do
-        for _, z in ipairs({-length*0.175,length*0.25}) do welded(model,base,"Pillar",Vector3.new(0.25,2.5,0.3),CFrame.new(x,1.8,z),bodyColor) end
-    end
-    welded(model,base,"RearWindow",Vector3.new(width*0.79,1.8,0.25),CFrame.new(0,1.8,length*0.25),Color3.fromRGB(53,75,91))
-    local wheels = {}
-    for _, x in ipairs({-width*0.51,width*0.51}) do
-        for _, z in ipairs({-length*0.31,length*0.31}) do
-            local w = welded(model,base,"Wheel",Vector3.new(1.2,2.6,2.6),CFrame.new(x,-0.4,z),Color3.fromRGB(22,25,31),Enum.PartType.Cylinder)
-            table.insert(wheels,w)
-            welded(model,base,"Rim",Vector3.new(1.24,1.55,1.55),CFrame.new(x,-0.4,z),Color3.fromRGB(128,139,151),Enum.PartType.Cylinder)
-        end
-    end
+    Design.build(spec,base,function(name,size,offset,color,shape)
+        return welded(model,base,name,size,offset,color,shape)
+    end,bodyColor)
     local seat = Instance.new("VehicleSeat"); seat.Name = "Driver"; seat.Size = Vector3.new(2.1,0.65,2)
-    seat.CFrame = base.CFrame * CFrame.new(-width*0.2,1,length*0.02); seat.CanCollide = false; seat.Massless = true; seat.HeadsUpDisplay = false; seat.MaxSpeed = 0; seat.Parent = model
+    seat.CFrame = base.CFrame * CFrame.new(-width*0.2,0.75,length*0.02); seat.CanCollide = false; seat.Massless = true; seat.HeadsUpDisplay = false; seat.MaxSpeed = 0; seat.Parent = model
     local sw = Instance.new("WeldConstraint"); sw.Part0=base; sw.Part1=seat; sw.Parent=seat
     local attachment = Instance.new("Attachment"); attachment.Parent=base
     local velocity = Instance.new("LinearVelocity"); velocity.Attachment0=attachment
@@ -164,7 +152,7 @@ function Vehicle:step(dt)
 end
 function Vehicle:repaint(car,index)
     local color=palette[index]; if not color then return end
-    local names={Chassis=true,Hood=true,Roof=true,Pillar=true}
+    local names={Chassis=true,Hood=true,Roof=true,Pillar=true,Mirror=true,CargoBody=true}
     for _,part in ipairs(car.Model:GetDescendants()) do if part:IsA("BasePart") and names[part.Name] then part.Color=color end end
 end
 function Vehicle:destroy(car)

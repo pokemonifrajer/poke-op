@@ -16,7 +16,7 @@ marker_names={name(x) for x in markers.findall('Item')}
 source='\n'.join(p.read_text() for p in (root_dir/'src/server').glob('*.lua'))
 required=set(re.findall(r':bind\("(\w+)"',source))|{'VaultDoor','GarageCar','PoliceCar','PrisonSpawn','PrisonOutside','TunnelStart','HomeInside','AirportDesk',
     'HomeDesk','HomeEnter','HomeLeave','WestwoodHomeDesk','WestwoodHomeEnter','WestwoodHomeInside','WestwoodHomeLeave',
-    'NorthHillHomeDesk','NorthHillHomeEnter','NorthHillHomeInside','NorthHillHomeLeave','AutohausBusiness','CourierBusiness'}
+    'NorthHillHomeDesk','NorthHillHomeEnter','NorthHillHomeInside','NorthHillHomeLeave','AutohausBusiness','CourierBusiness','CompanyCargo','CompanyPort','CompanyParts','CompanyWorkshop','VentStart','VentExit','PrisonGate'}
 assert required<=marker_names,required-marker_names
 assert workspace.findtext("Properties/bool[@name='StreamingEnabled']")=='true'
 traffic=child(city,'TrafficLights')
@@ -39,18 +39,28 @@ for obj in items:
 def inside(point,obj,center,extent,pad=0):
     # Authored collidable parts are axis aligned except one decorative fountain sculpture.
     return all(abs(point[i]-center[i])<extent[i]/2+pad for i in range(3))
-for marker_name in ('BankTerminal','BankLoot','PrisonLaundry','PrisonExit','TunnelExit','JobDepot','PoliceDesk'):
+for marker_name in ('BankTerminal','BankLoot','PrisonLaundry','PrisonExit','TunnelExit','JobDepot','PoliceDesk','CompanyDesk','CompanyCargo','CompanyPort','CompanyParts','CompanyWorkshop','PrisonWorkshop','PrisonMeal','VentEnter','PrisonGateConsole'):
     mark=child(markers,marker_name); x,y,z=pos(mark)
     # A player approaches the south face from 5 studs away at standing center height.
     approach=(x,max(y,3),z+5)
     assert not any(inside(approach,obj,c,s,0.3) for obj,c,s in solid),f'Blocked approach: {marker_name}'
-for point in [(-84,4,-47),(-84,4,-43),(84,4,-55),(84,4,-51),(-85,4,119),(-85,4,123),(-267,4,115),(390,4,372),(390,4,376),(-350,4,277),(320,4,-316)]:
+for point in [(-84,4,-47),(-84,4,-43),(84,4,-55),(84,4,-51),(-85,4,119),(-85,4,123),(-267,4,115),(390,4,372),(390,4,376),(-350,4,277),(320,4,-316),(-84,4,-222),(-84,4,-217)]:
     assert not any(inside(point,obj,c,s,0.2) for obj,c,s in solid),f'Blocked entrance: {point}'
 for x in range(0,136,5):
     assert not any(inside((x,-10,-367),obj,c,s,0.2) for obj,c,s in solid),'Tunnel obstructed'
+for x in range(-43,145,4):
+    assert not any(inside((x,18,-411),obj,c,s,0.25) for obj,c,s in solid),'Vent route obstructed'
+assert size(child(markers,'PrisonGate'))[0]>=12
 for obj,c,s in solid:
     assert all(v>0 for v in s),name(obj)
     assert obj.find("Properties/Color3uint8[@name='Color3uint8']") is not None
+# Client action wiring: every live button action must exist on the server.
+client_source=(root_dir/'src/client/Main.client.lua').read_text()
+server_source=(root_dir/'src/server/Main.server.lua').read_text()
+client_actions=set(re.findall(r'send\("(\w+)"',client_source))
+server_actions=set(re.findall(r'actions\.(\w+)\s*=',server_source))
+assert client_actions<=server_actions,client_actions-server_actions
+assert len(list((root_dir/'src').rglob('*.lua')))==15
 scripts=[x for x in items if x.get('class') in ('Script','LocalScript','ModuleScript')]
 assert all('require(\"http' not in (x.findtext("Properties/ProtectedString[@name='Source']") or '') for x in scripts)
 manifest=json.loads((root_dir/'dist/build-manifest.json').read_text())

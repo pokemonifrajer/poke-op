@@ -15,9 +15,11 @@ local Prison=require(script.Parent.PrisonService)
 local Heist=require(script.Parent.HeistService)
 local NPC=require(script.Parent.NPCService)
 local Traffic=require(script.Parent.TrafficService)
+local Business=require(script.Parent.BusinessService)
+local Police=require(script.Parent.PoliceService)
 local city=workspace:WaitForChild("City",20)
 assert(city,"City map is missing. Open dist/HarborCity.rbxlx, or run tools/build_place.py.")
-local C={Data=Data,Vehicles=Vehicles,Prison=Prison,Heist=Heist,Roles={},Jobs={},Teams={},Remotes={},RespawnAt={},Movement={},PlayerArrests={},JoinAt={},HomeGuests={},HomeLocked={},CurrentHome={},BusinessNext={}}
+local C={Business=Business,Police=Police,Data=Data,Vehicles=Vehicles,Prison=Prison,Heist=Heist,Roles={},Jobs={},Teams={},Remotes={},RespawnAt={},Movement={},JoinAt={},HomeGuests={},HomeLocked={},CurrentHome={},BusinessNext={}}
 local folder=Instance.new("Folder"); folder.Name="Network"; folder.Parent=ReplicatedStorage
 for _,name in ipairs({"Action","Drive","State","Notify","Hack","OpenPanel"}) do local remote=Instance.new("RemoteEvent"); remote.Name=name; remote.Parent=folder; C.Remotes[name]=remote end
 for _,name in ipairs({"Civilian","Police","Prisoner"}) do
@@ -41,13 +43,9 @@ function C:bind(marker,action,object,hold,callback)
 end
 function C:push(p)
     local profile=Data.Profiles[p]; local d=Data:get(p); if not profile or not d or not p.Parent then return end
-    local roster={}
-    if self.Roles[p]=="Police" then
-        for other,otherProfile in pairs(Data.Profiles) do
-            if otherProfile.Ready and otherProfile.Data.Wanted>0 then table.insert(roster,{Id=other.UserId,Name=other.DisplayName,Wanted=otherProfile.Data.Wanted}) end
-        end
-    end
+    local roster=Police.C and Police:roster(p) or {}
     self.Remotes.State:FireClient(p,{Cash=d.Cash,Bank=d.Bank,Cars=d.Cars,Colors=d.Colors,Home=d.Home or Domain.ownsHome(d,"marina"),Homes=d.Homes or {},Businesses=d.Businesses or {},HomeLocked=self.HomeLocked[p]~=false,
+        Company=Business.C and Business:snapshot(p) or nil,Arrests=d.Arrests or 0,ArrestProgress=Police.C and Police:progress(p) or nil,PrisonTools=Prison.Tools[p] or false,
         Wanted=d.Wanted,Jail=math.max(0,d.JailUntil-os.time()),Role=self.Roles[p] or "Civilian",Transactions=d.Transactions,
         SaveMode=profile.Mode,Version=Config.Version,Heist=Heist:snapshot(p),Key=Prison.Keys[p] or false,
         Job=self.Jobs[p] and {Name="Rozvoz zásilek",Target=self.Jobs[p].Target,Deadline=math.max(0,self.Jobs[p].Deadline-os.time())} or nil,
@@ -62,14 +60,14 @@ local function clean(p)
 end
 function C:startJob(p)
     if not clean(p) then self:notify(p,"Práci lze zahájit jen bez hledanosti a aktivní loupeže."); return end
-    if self.Jobs[p] then self:notify(p,"Už vezeš zásilku."); return end
+    if self.Jobs[p] or Business.Contracts[p] then self:notify(p,"Už vezeš zásilku."); return end
     self.Jobs[p]={Id=HttpService:GenerateGUID(false),Started=os.clock(),Deadline=os.time()+180,Target="Docks"}
     self:notify(p,"Vyzvedl jsi zásilku. Doruč ji k modrému stanovišti v přístavu."); self:push(p)
 end
-Vehicles:init(C); Prison:init(C); Heist:init(C); NPC:init(C); Traffic:init()
+Vehicles:init(C); Prison:init(C); Heist:init(C); NPC:init(C); Traffic:init(); Business:init(C); Police:init(C,NPC)
 C:bind("GarageDesk","Otevřít garáž","ASTER • autohaus",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Garage") end)
 C:bind("BankATM","Otevřít banku","Bankomat",0,function(p) if not Prison:jailed(p) then C.Remotes.OpenPanel:FireClient(p,"Bank") end end)
-C:bind("PoliceDesk","Zvolit službu","Policejní stanice",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Jobs") end)
+C:bind("PoliceDesk","Zvolit službu","Policejní stanice",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Police") end)
 C:bind("AirportDesk","Otevřít letištní halu","Harbor International",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Jobs") end)
 C:bind("JobDepot","Vyzvednout zásilku","Harbor Express",1,function(p) C:startJob(p) end)
 C:bind("DeliveryDrop","Doručit zásilku","Přístavní kancelář",2,function(p)
@@ -122,7 +120,7 @@ actions.role=function(p,role)
     if role~="Police" and role~="Civilian" then return false end
     if not clean(p) or not Util.near(p,city.Markers.PoliceDesk.Position,35) then return false,"Změň práci u přepážky na policejní stanici, bez hledanosti." end
     if C.Roles[p]==role then return true end
-    C.Jobs[p]=nil; Vehicles:remove(p); C.Roles[p]=role; p.Team=C.Teams[role]
+    Business:cancel(p); Police:remove(p); C.Jobs[p]=nil; Vehicles:remove(p); C.Roles[p]=role; p.Team=C.Teams[role]
     C.RespawnAt[p]="Police"; p:LoadCharacter()
     return true,role=="Police" and "Služba zahájena. Policejní vůz vyzvedni v garáži telefonu." or "Služba ukončena."
 end
@@ -173,12 +171,14 @@ actions.sprint=function(p,enabled)
     if type(enabled)~="boolean" then return false end
     local _,h=Util.root(p); if h then h.WalkSpeed=enabled and 22 or 16 end; return true
 end
-actions.arrest=function(p,id)
-    if C.Roles[p]~="Police" or not Domain.integer(id,1,100000000000) then return false end
-    local target=Players:GetPlayerByUserId(id); local d=target and Data:get(target); local root=target and Util.root(target)
-    if not root or not d or d.Wanted==0 or not Util.near(p,root.Position,Config.ArrestDistance) or not Util.los(Util.root(p).Position,root.Position,{p.Character,target.Character}) then return false,"Hledaný hráč musí být blízko a v dohledu." end
-    C.PlayerArrests[p]={Target=target,Started=os.clock()}; C:notify(target,"Policista tě poutá! Zatčení za 3 sekundy."); return true,"Zůstaň u podezřelého 3 sekundy."
-end
+actions.arrest=function(p,id) return Police:begin(p,id) end
+actions.arrestNearest=function(p) return Police:nearest(p) end
+actions.assignCase=function(p,id) return Police:assign(p,id) end
+actions.foundCompany=function(p,request) return Business:found(p,request) end
+actions.companyContract=function(p) return Business:start(p) end
+actions.companyUpgrade=function(p) return Business:upgrade(p) end
+actions.companyWithdraw=function(p) return Business:withdraw(p) end
+actions.companyCancel=function(p) Business:cancel(p); return true,"Zakázka zrušena." end
 C.Remotes.Action.OnServerEvent:Connect(function(p,action,value)
     if type(action)~="string" or #action>24 or not actions[action] or not Guard:allow(p,"action",8,4) or not C:valid(p) then return end
     if Prison:jailed(p) and action~="snapshot" and action~="sprint" then C:notify(p,"Tato funkce je ve vězení uzamčená."); return end
@@ -193,7 +193,7 @@ local function onCharacter(p,character)
     local root=character:WaitForChild("HumanoidRootPart",10); local human=character:FindFirstChildOfClass("Humanoid")
     if not root or not human then return end
     local data=Data:get(p); if not data then return end
-    Heist:remove(p); C.Jobs[p]=nil
+    Heist:remove(p); Business:cancel(p); Police:cancel(p); C.Jobs[p]=nil
     human.WalkSpeed=16
     if data.JailUntil>os.time() then
         p.Team=C.Teams.Prisoner; C:teleport(p,city.Markers.PrisonSpawn.Position+Vector3.new(0,3,0))
@@ -202,6 +202,11 @@ local function onCharacter(p,character)
         local location=C.RespawnAt[p] or (C.Roles[p]=="Police" and "Police" or "Spawn"); C.RespawnAt[p]=nil
         C:teleport(p,Util.vector(Config.Locations[location]))
         if C.Roles[p]=="Police" then
+            local backpack=p:FindFirstChildOfClass("Backpack")
+            if backpack then
+                local tool=Instance.new("Tool"); tool.Name="Pouta"; tool.RequiresHandle=false; tool.CanBeDropped=false; tool.Parent=backpack
+                tool.Activated:Connect(function() if tool.Parent==p.Character then local _,message=Police:nearest(p); if message then C:notify(p,message) end end end)
+            end
             local torso=character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
             if torso then
                 local vest=Util.part(character,"PoliceVest",torso.Size+Vector3.new(0.14,0.08,0.22),torso.CFrame,Color3.fromRGB(28,50,76),false)
@@ -209,7 +214,7 @@ local function onCharacter(p,character)
             end
         end
     end
-    human.Died:Connect(function() Heist:remove(p); C.Jobs[p]=nil end)
+    human.Died:Connect(function() Heist:remove(p); Business:cancel(p); Police:cancel(p); C.Jobs[p]=nil end)
     C:push(p)
 end
 local function onPlayer(p)
@@ -225,8 +230,8 @@ end
 Players.PlayerAdded:Connect(onPlayer)
 for _,p in ipairs(Players:GetPlayers()) do task.spawn(onPlayer,p) end
 Players.PlayerRemoving:Connect(function(p)
-    Heist:remove(p); Vehicles:remove(p); Prison:remove(p)
-    C.Roles[p]=nil; C.Jobs[p]=nil; C.Movement[p]=nil; C.PlayerArrests[p]=nil; C.JoinAt[p]=nil; C.HomeGuests[p]=nil; C.HomeLocked[p]=nil; C.CurrentHome[p]=nil; C.BusinessNext[p]=nil; C.RespawnAt[p]=nil
+    Heist:remove(p); Vehicles:remove(p); Prison:remove(p); Business:remove(p); Police:remove(p)
+    C.Roles[p]=nil; C.Jobs[p]=nil; C.Movement[p]=nil; C.JoinAt[p]=nil; C.HomeGuests[p]=nil; C.HomeLocked[p]=nil; C.CurrentHome[p]=nil; C.BusinessNext[p]=nil; C.RespawnAt[p]=nil
     Data:save(p,true)
 end)
 Data:start()
@@ -235,7 +240,7 @@ local weather="Clear"; workspace:SetAttribute("Weather",weather); workspace:SetA
 RunService.Heartbeat:Connect(function(dt)
     Lighting.ClockTime=(Lighting.ClockTime+dt/100)%24
     npcClock=npcClock+dt; elapsed=elapsed+dt; weatherClock=weatherClock+dt; payClock=payClock+dt
-    if npcClock>=0.2 then NPC:step(npcClock); Traffic:step(npcClock); npcClock=0 end
+    if npcClock>=0.2 then NPC:step(npcClock); Police:step(npcClock); Traffic:step(npcClock); npcClock=0 end
     if weatherClock>150 then
         weatherClock=0; weather=({"Clear","Fog","Rain"})[math.random(1,3)]; workspace:SetAttribute("Weather",weather)
         local atmosphere=Lighting:FindFirstChildOfClass("Atmosphere")
@@ -243,7 +248,7 @@ RunService.Heartbeat:Connect(function(dt)
     end
     if elapsed>=1 then
         local tick=elapsed; elapsed=0
-        Heist:step(); Prison:step()
+        Heist:step(); Prison:step(); Business:step()
         for p,profile in pairs(Data.Profiles) do
             local d=Data:get(p)
             if d then
@@ -274,11 +279,6 @@ RunService.Heartbeat:Connect(function(dt)
                 local job=C.Jobs[p]; if job and (os.time()>job.Deadline or d.Wanted>0) then C.Jobs[p]=nil; C:notify(p,"Rozvoz byl zrušen.") end
                 C:push(p)
             end
-        end
-        for officer,arrest in pairs(C.PlayerArrests) do
-            local root=Util.root(arrest.Target)
-            if not Data:get(officer) or C.Roles[officer]~="Police" or not root or not Util.near(officer,root.Position,Config.ArrestDistance) or root.AssemblyLinearVelocity.Magnitude>9 or not Util.los(Util.root(officer).Position,root.Position,{officer.Character,arrest.Target.Character}) then C.PlayerArrests[officer]=nil
-            elseif os.clock()-arrest.Started>=3 then Prison:arrest(arrest.Target,officer); C.PlayerArrests[officer]=nil end
         end
         local night=Lighting.ClockTime<6 or Lighting.ClockTime>18
         for _,light in ipairs(city.StreetLights:GetDescendants()) do if light:IsA("PointLight") then light.Enabled=night end end

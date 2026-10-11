@@ -1,6 +1,6 @@
 -- Valid Luau; portable subset keeps the domain logic executable in offline tests.
 local Config = {
-    Title = "HARBOR CITY", Version = "0.2.0-alpha", DataVersion = 1,
+    Title = "HARBOR CITY", Version = "0.3.0-alpha", DataVersion = 1,
     DataStoreName = "HarborCity_Alpha_v1", SessionLease = 180, AutoSave = 45,
     -- Studio is intentionally nonpersistent. Production always requires a successful load.
     StudioPersistence = false,
@@ -22,6 +22,16 @@ local Config = {
         courier = {Name="Harbor Express Franchise",Price=12000,Income=180,Interval=180,Marker="CourierBusiness"},
         autohaus = {Name="Aster Autohaus Workshop",Price=30000,Income=420,Interval=180,Marker="AutohausBusiness"},
     },
+    Company = {
+        Brands = {"NOVA", "MERIDIAN", "ATLAS", "NORTHSTAR", "VERTEX", "COASTAL"},
+        Industries = {
+            logistics = {Name="Logistics", Label="Doprava", Price=2500, Reward=700, Pickup="CompanyCargo", Drop="CompanyPort", Destination="Docks"},
+            motors = {Name="Motors", Label="Autoservis", Price=3500, Reward=850, Pickup="CompanyParts", Drop="CompanyWorkshop", Destination="Garage"},
+        },
+        UpgradePrices = {4000,9000}, MaxLevel=3, MaxTreasury=1000000,
+        MinSeconds=22, Deadline=240, Cooldown=35,
+    },
+    Police = {CuffSeconds=3, NPCReward=400, RespawnSeconds=90, DetentionSeconds=55},
     DeliveryReward = 450, DeliverySeconds = 12, PayInterval = 180, PolicePay = 300,
     Vehicles = {
         commuter = {Name = "Aster Compact", Price = 0, Speed = 70, Acceleration = 26, Color = {68, 155, 173}},
@@ -36,7 +46,7 @@ local Config = {
         Bank = {-84, 5, -85}, Prison = {0, 5, -360}, Release = {34, 5, -263},
         Docks = {286, 5, 115}, Apartment = {85, 5, 269}, Depot = {-267, 5, 80},
         Jewelry = {267, 5, 270}, School = {270, 5, 392}, Industrial = {-463, 5, 110}, Airport = {390, 5, 350},
-        WestwoodHome = {-350,5,255}, NorthHillHome = {320,5,-340},
+        WestwoodHome = {-350,5,255}, NorthHillHome = {320,5,-340}, Company = {-79,5,-244},
     },
     Map = {MinX = -550, MaxX = 500, MinZ = -505, MaxZ = 490},
 }

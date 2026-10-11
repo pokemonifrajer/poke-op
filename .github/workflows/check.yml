@@ -19,6 +19,7 @@ jobs:
         run: |
           lua5.4 tests/domain.lua
           lua5.4 tests/services.lua
+          lua5.4 tests/expansion.lua
       - name: Build and inspect Roblox place
         run: |
           python3 tools/build_place.py

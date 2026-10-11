@@ -6,7 +6,7 @@ end
 function Domain.default(config)
     return {Version = config.DataVersion, Cash = config.StartingCash, Bank = config.StartingBank,
         Cars = {commuter = true}, Colors = {}, Home = false, Homes = {}, Businesses = {}, Transactions = {},
-        Wanted = 0, JailUntil = 0, LastCrime = 0, LastDecay = 0, RewardIds = {}}
+        Wanted = 0, JailUntil = 0, LastCrime = 0, LastDecay = 0, RewardIds = {}, Company = false, Arrests = 0}
 end
 function Domain.validate(data, config)
     if type(data) ~= "table" then return false end
@@ -17,6 +17,13 @@ function Domain.validate(data, config)
     if type(data.Home) ~= "boolean" or not Domain.integer(data.LastCrime, 0, 100000000000) or not Domain.integer(data.LastDecay, 0, 100000000000) then return false end
     if data.Homes ~= nil and type(data.Homes) ~= "table" then return false end
     if data.Businesses ~= nil and type(data.Businesses) ~= "table" then return false end
+    if data.Arrests ~= nil and not Domain.integer(data.Arrests,0,100000000) then return false end
+    if data.Company ~= nil and data.Company ~= false then
+        local c=data.Company
+        if type(c)~="table" or not config.Company.Industries[c.Industry] or not Domain.integer(c.Brand,1,#config.Company.Brands)
+            or not Domain.integer(c.Level,1,config.Company.MaxLevel) or not Domain.integer(c.Treasury,0,config.Company.MaxTreasury)
+            or not Domain.integer(c.Completed,0,100000000) then return false end
+    end
     for id, owned in pairs(data.Homes or {}) do if not config.Properties[id] or type(owned) ~= "boolean" then return false end end
     for id, owned in pairs(data.Businesses or {}) do if not config.Businesses[id] or type(owned) ~= "boolean" then return false end end
     for key, value in pairs(data.Cars) do if not config.Vehicles[key] or type(value) ~= "boolean" then return false end end
@@ -26,6 +33,8 @@ end
 function Domain.normalize(data, config)
     data.Homes = data.Homes or {}
     data.Businesses = data.Businesses or {}
+    data.Company = data.Company or false
+    data.Arrests = data.Arrests or 0
     if data.Home then data.Homes.marina = true end
     return data
 end
@@ -113,5 +122,42 @@ function Domain.jail(data, now, config)
     data.JailUntil = now + config.SentenceBase + data.Wanted * config.SentencePerStar
     data.Wanted = 0
     return data.JailUntil
+end
+function Domain.foundCompany(data,industry,brand,config,now)
+    local spec=type(industry)=="string" and config.Company.Industries[industry]
+    if data.Company then return false,"Už vlastníš firmu." end
+    if not spec or not Domain.integer(brand,1,#config.Company.Brands) then return false,"Vyber název a obor firmy." end
+    local ok,reason=Domain.spend(data,spec.Price,"Založení firmy",now)
+    if ok then data.Company={Industry=industry,Brand=brand,Level=1,Treasury=0,Completed=0} end
+    return ok,reason
+end
+function Domain.companyName(company,config)
+    if not company then return "" end
+    return config.Company.Brands[company.Brand].." "..config.Company.Industries[company.Industry].Name
+end
+function Domain.upgradeCompany(data,config,now)
+    local c=data.Company
+    if not c or c.Level>=config.Company.MaxLevel then return false,"Firma už má maximální úroveň, nebo ji ještě nevlastníš." end
+    local ok,reason=Domain.spend(data,config.Company.UpgradePrices[c.Level],"Rozšíření firmy",now)
+    if ok then c.Level=c.Level+1 end
+    return ok,reason
+end
+function Domain.companyReward(data,id,config,now)
+    local c=data.Company
+    if not c or type(id)~="string" then return false end
+    for _,saved in ipairs(data.RewardIds) do if saved==id then return false end end
+    local amount=config.Company.Industries[c.Industry].Reward+250*(c.Level-1)
+    if c.Treasury+amount>config.Company.MaxTreasury then return false end
+    c.Treasury=c.Treasury+amount; c.Completed=c.Completed+1
+    table.insert(data.RewardIds,id); while #data.RewardIds>80 do table.remove(data.RewardIds,1) end
+    Domain.log(data,"Firemní zakázka",amount,now)
+    return true,amount
+end
+function Domain.withdrawCompany(data,config,now)
+    local c=data.Company
+    if not c or c.Treasury<=0 then return false,"Firma nemá žádný zisk k výběru." end
+    if data.Bank+c.Treasury>config.MaxBalance then return false,"Na bankovním účtu není místo." end
+    local amount=c.Treasury; c.Treasury=0; data.Bank=data.Bank+amount
+    Domain.log(data,"Výběr zisku firmy",amount,now); return true
 end
 return Domain

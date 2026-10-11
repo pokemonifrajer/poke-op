@@ -48,6 +48,7 @@ function NPC:path(agent, goal)
     task.spawn(function()
         local path=PathfindingService:CreatePath({AgentRadius=2,AgentHeight=5,AgentCanJump=true,WaypointSpacing=7})
         local ok=pcall(function() path:ComputeAsync(agent.Root.Position,goal) end)
+        if not agent.Model.Parent then agent.Computing=false; return end
         if ok and path.Status==Enum.PathStatus.Success then agent.Waypoints=path:GetWaypoints(); agent.Waypoint=2
         else agent.Waypoints=nil; agent.Human:MoveTo(goal) end
         agent.Computing=false
@@ -94,11 +95,14 @@ function NPC:step(dt)
             if (agent.Root.Position-wp.Position).Magnitude<4 then agent.Waypoint=agent.Waypoint+1; wp=points[agent.Waypoint] end
             if wp then if wp.Action==Enum.PathWaypointAction.Jump then agent.Human.Jump=true end; agent.Human:MoveTo(wp.Position) end
         end
+        self:animate(agent,dt)
+    end
+end
+function NPC:animate(agent,dt)
         local moving=agent.Root.AssemblyLinearVelocity.Magnitude>1
         agent.Phase=agent.Phase+dt*8
         for i,j in ipairs(agent.Joints) do
             j.C0=(i==1 and CFrame.new(-1.5,0.5,0) or i==2 and CFrame.new(-0.5,-1,0) or i==3 and CFrame.new(1.5,0.5,0) or CFrame.new(0.5,-1,0))*CFrame.Angles(moving and math.sin(agent.Phase+(i<=2 and 0 or math.pi))*(i%2==0 and -0.55 or 0.45) or 0,0,0)
         end
-    end
 end
 return NPC

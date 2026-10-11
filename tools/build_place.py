@@ -7,7 +7,7 @@ import math, json, hashlib, xml.etree.ElementTree as E
 ROOT=Path(__file__).resolve().parents[1]
 REF=0
 MATERIAL={'plastic':256,'neon':288,'concrete':816,'brick':848,'slate':800,'metal':1088,'wood':512,'grass':1280,'sand':1296,'glass':1568,'asphalt':1376}
-C={'ink':(26,35,48),'navy':(36,53,68),'stone':(167,169,161),'light':(215,213,200),'teal':(72,151,160),'gold':(226,174,97),'road':(49,55,62),'walk':(148,153,151),'grass':(78,109,93),'glass':(78,116,135),'wood':(115,86,62),'slate':(82,91,98)}
+C={'ink':(26,35,48),'navy':(36,53,68),'stone':(167,169,161),'light':(215,213,200),'teal':(69,126,148),'gold':(226,174,97),'road':(34,39,46),'walk':(130,137,140),'grass':(53,82,70),'glass':(48,75,95),'wood':(115,86,62),'slate':(82,91,98)}
 root=E.Element('roblox',{'version':'4'})
 E.SubElement(root,'External').text='null'; E.SubElement(root,'External').text='nil'
 def prop(item,typ,name,val):
@@ -143,7 +143,7 @@ for x in (-180,0,180):
             for lamp_index,lamp_name in enumerate(('Red','Amber','Green')):
                 tint={'Red':(231,88,84),'Amber':(238,184,83),'Green':(91,201,143)}[lamp_name]
                 bulb=part(signal,lamp_name,(x+side*25,10.5-lamp_index*1.5,z+side*25),(0.9,0.9,0.9),tint,'neon',collide=False)
-                prop(bulb,'bool','Enabled',lamp_name=='Green')
+                # Emission is controlled through Material on the server.
 for x in (-155,155):
     for z in range(-220,341,70): lamp(x,z)
 for z in (-155,155):
@@ -330,7 +330,10 @@ prison=item(blocks,'Model','NORTHGATE CORRECTIONAL')
 part(prison,'PrisonFloor',(-2,0.3,-359),(198,0.6,146),'walk')
 for x in (-101,101): part(prison,'Perimeter',(x,8,-359),(2,16,150),'stone')
 part(prison,'NorthWall',(0,8,-435),(204,16,2),'stone')
-part(prison,'SouthWall',(0,8,-283),(204,16,2),'stone')
+for side in (-1,1): part(prison,'SouthWall',(side*55,8,-283),(94,16,2),'stone')
+part(markers,'PrisonGate',(0,6,-283),(16,12,1.2),'navy','metal')
+marker('PrisonGateConsole',(12,4,-279),(2,3,1),'teal')
+marker('PrisonIntake',(22,3,-273),(3,4,2),'gold')
 for x in (-92,92):
     for z in (-426,-292):
         part(prison,'WatchTower',(x,12,z),(12,24,12),'navy')
@@ -356,6 +359,31 @@ part(prison,'LaundryShelves',(68,3,-325),(16,6,6),'navy')
 marker('PrisonLaundry',(66,4,-319),(3,3,2),'gold'); marker('PrisonExit',(95,4,-350),(2,4,3),'teal')
 marker('PrisonSpawn',(-58,1,-380),visible=False); marker('PrisonOutside',(124,1,-344),visible=False)
 sign(prison,'NORTHGATE CORRECTIONAL',(0,12,-281.7),68,4,'light','navy',math.pi)
+# Working prison wing, real vent corridor, gate and clear internal wayfinding.
+part(prison,'WorkshopFloor',(55,0.9,-365),(57,0.5,32),'stone')
+part(prison,'WorkshopRoof',(55,13,-365),(59,1,34),'navy')
+for x in (31,79): part(prison,'WorkshopPillar',(x,6,-378),(1.4,12,1.4),'light')
+part(prison,'Workbench',(55,2.6,-374),(19,5,5),'wood','wood')
+part(prison,'ToolBoard',(55,7,-380),(20,7,0.3),'ink','metal')
+for x in range(47,65,3): part(prison,'Tools',(x,7,-379.7),(0.25,3,0.2),'gold','metal',collide=False)
+marker('PrisonWorkshop',(55,4,-370),(2,2,1),'gold')
+marker('PrisonMeal',(39,3,-398),(3,2,2),'gold')
+marker('VentEnter',(-43,4,-425),(4,3,0.7),'slate')
+marker('VentStart',(-43,16,-411),visible=False)
+marker('VentExit',(140,18,-411),(2,3,2),'gold')
+part(prison,'VentFloor',(50,14.8,-411),(202,1,12),'slate','metal')
+part(prison,'VentRoof',(50,24,-411),(202,0.6,12),'slate','metal')
+for z in (-417,-405): part(prison,'VentSide',(50,19.3,z),(202,9,0.6),'navy','metal')
+for x in (-50,151): part(prison,'VentEnd',(x,19.3,-411),(0.5,9,12),'slate','metal')
+for x in range(-30,141,34):
+    bulb=part(prison,'VentLamp',(x,23,-411),(2,0.15,1),'gold','neon',collide=False)
+    light=item(bulb,'PointLight','Light'); prop(light,'float','Range',28); prop(light,'float','Brightness',0.65)
+for label,pos in [('CELL BLOCK A',(-47,11,-391.5)),('CANTEEN',(42,11,-387)),('WORKSHOP',(55,11,-347)),('LAUNDRY',(68,9,-313))]: sign(prison,label,pos,26,2,'light','navy',math.pi)
+# A south-facing security camera lens and housing at each observation point.
+for x,z in [(-79,-385),(79,-344),(76,-391)]:
+    part(prison,'CameraArm',(x,12,z),(2,0.4,0.4),'ink','metal')
+    part(prison,'CameraHousing',(x+1,12,z+1),(1.4,1,2),'light','metal')
+    part(prison,'CameraLens',(x+1,12,z+2.05),(0.7,0.5,0.1),'ink','glass',collide=False)
 # The drain route is below the physical map, under a thin roof rather than solid terrain.
 marker('TunnelDig',(-4,1.3,-367),(4,1,4),'ink')
 part(prison,'TunnelFloor',(66,-15,-367),(157,1,12),'slate','slate')
@@ -368,11 +396,61 @@ for x in (0,35,70,105,137):
 # Neighborhood vegetation, benches, curbs and distant skyline.
 for x,z in [(-230,155),(-310,-145),(-310,160),(220,260),(272,282),(280,320),(-134,228),(-138,312),(132,223),(135,334),(-243,-310),(230,-310),(-343,10),(-343,80),(-342,-100)]: tree(x,z)
 for x in range(-350,301,65): tree(x,375,1.5)
+# HARBOR COMMERCE: a distinct, walkable registry and business hub south of the plaza.
+commerce=building('HARBOR COMMERCE',-84,-244,60,44,15,'navy',True)
+sign(commerce,'HARBOR / COMMERCE',(-84,11,-221.4),49,3,'light','ink',math.pi)
+part(commerce,'Reception',(-84,2.3,-249),(23,4.6,4),'wood','wood')
+part(commerce,'ReceptionTop',(-84,4.75,-249),(24,0.35,5),'light','metal')
+marker('CompanyDesk',(-79,4,-244),(2,2,1),'gold')
+marker('CompanyCargo',(-285,3,108),(3,4,3),'gold')
+marker('CompanyPort',(289,3,121),(3,4,3),'gold')
+marker('CompanyParts',(287,3,93),(3,4,3),'teal')
+marker('CompanyWorkshop',(-61,3,106),(3,4,3),'teal')
+for x in (-105,-65): bench(commerce,x,-236)
+for x in (-103,-88,-71): part(commerce,'OfficeLamp',(x,12,-246),(5,0.25,1),'light','neon',collide=False)
+part(roads,'CommerceEntrance',(-84,0.3,-214),(14,0.6,16),'walk')
+# Coastal palms, slim skyline towers and shopfronts share one palette.
+def palm(x,z,h=19):
+    part(land,'PalmTrunk',(x,h/2,z),(1.2,h,1.2),'wood','wood')
+    for angle in range(0,360,60):
+        a=math.radians(angle)
+        part(land,'PalmFrond',(x+math.sin(a)*3,h,z+math.cos(a)*3),(2,0.45,10),(43,82,67),'grass',yaw=a,collide=False)
+        part(land,'PalmTip',(x+math.sin(a)*7,h-1.2,z+math.cos(a)*7),(1.3,0.35,6),(50,91,69),'grass',yaw=a,collide=False)
+for x,z in [(36,31),(133,31),(34,139),(137,140),(-141,44),(-141,114),(214,-130),(214,-55),(216,145),(322,133),(321,71),(417,310),(416,-84),(415,-152),(322,265)]: palm(x,z)
+for name,x,z,w,d,h in [('MERIDIAN SPIRE',268,-91,52,65,146),('ECLIPSE TOWER',-269,-82,55,64,122)]:
+    # Towers cap the existing lower floors, preserving the authored street plan.
+    part(blocks,name,(x,(h+70)/2,z),(w,h-70,d),'navy','glass')
+    for y in range(77,h,8):
+        part(blocks,'TowerBand',(x,y,z),(w+0.4,0.45,d+0.4),'ink','metal',collide=False)
+        for side in (-1,1):
+            part(blocks,'WarmOffice',(x+side*(w/2+0.3),y+3,z+8),(0.1,2,12),(236,187,121),'neon',collide=False)
+    part(blocks,'Crown',(x,h+1,z),(w+2,1,d+2),'gold','metal')
+    part(blocks,'Antenna',(x,h+13,z),(0.6,25,0.6),'slate','metal',collide=False)
+for x,z,w in [(-266,-42,53),(-90,300,74),(266,-228,42)]:
+    for dx in range(-int(w/2)+6,int(w/2),12):
+        part(blocks,'Shopfront',(x+dx,4.3,z),(9,7,0.4),'glass','glass')
+        part(blocks,'ShopMullion',(x+dx-4.7,4.3,z+0.3),(0.35,7.4,0.4),'ink','metal')
+    part(blocks,'ShopCanopy',(x,8.6,z+2),(w,0.6,5),'ink','metal')
+# Pavement furniture and parking bays make the streets legible at pedestrian scale.
+for x,z in [(-140,-140),(140,-140),(140,140),(-140,140),(-308,26),(225,294)]:
+    part(land,'Planter',(x,1.3,z),(6,2.6,6),'stone')
+    part(land,'PlanterGreen',(x,3.1,z),(5,1.8,5),'grass','grass',collide=False)
+    part(land,'WasteBin',(x+5,1.8,z),(2.5,3.6,2.5),'ink','metal')
+for x in range(-123,-46,10):
+    part(roads,'ParkingBay',(x,0.29,141),(0.15,0.04,17),'light','plastic',collide=False)
+for x in (44,124):
+    part(roads,'StationParking',(x,0.27,-38),(0.15,0.04,15),'light','plastic',collide=False)
+# Interior downlights are cheap, static accents; no external texture dependency.
+for model,cx,cz in [(bank,-84,-84),(station,84,-88),(garage,-85,86),(commerce,-84,-244)]:
+    for dx in (-16,16):
+        part(model,'CeilingStrip',(cx+dx,12.5,cz),(12,0.12,0.65),'light','neon',collide=False)
+        bulb=part(model,'RecessLight',(cx+dx,12,cz),(0.5,0.1,0.5),'light','neon',collide=False)
+        light=item(bulb,'PointLight','WarmInterior'); prop(light,'float','Range',30); prop(light,'float','Brightness',0.6); prop(light,'Color3','Color',(1,0.86,0.73)); prop(light,'bool','Shadows',False)
 # Invisible edge barriers stop players falling off the authored alpha area.
-for pos,size in [((-430,30,-25),(2,60,890)),((430,30,-25),(2,60,890)),((0,30,-465),(860,60,2)),((0,30,410),(860,60,2))]: part(land,'WorldBoundary',pos,size,'ink',trans=1)
-lighting=item(root,'Lighting','Lighting'); prop(lighting,'float','ClockTime',15.5); prop(lighting,'float','Brightness',2.3); prop(lighting,'bool','GlobalShadows',True); prop(lighting,'token','Technology',3); prop(lighting,'Color3','Ambient',(0.24,0.29,0.34)); prop(lighting,'Color3','OutdoorAmbient',(0.48,0.51,0.54)); prop(lighting,'float','EnvironmentDiffuseScale',0.7); prop(lighting,'float','EnvironmentSpecularScale',0.6)
+for pos,size in [((-552,30,-7),(2,60,1000)),((506,30,-7),(2,60,1000)),((-23,30,-506),(1060,60,2)),((-23,30,494),(1060,60,2))]: part(land,'WorldBoundary',pos,size,'ink',trans=1)
+lighting=item(root,'Lighting','Lighting'); prop(lighting,'float','ClockTime',17.6); prop(lighting,'float','Brightness',2.3); prop(lighting,'bool','GlobalShadows',True); prop(lighting,'token','Technology',3); prop(lighting,'Color3','Ambient',(0.24,0.29,0.34)); prop(lighting,'Color3','OutdoorAmbient',(0.48,0.51,0.54)); prop(lighting,'float','EnvironmentDiffuseScale',0.7); prop(lighting,'float','EnvironmentSpecularScale',0.6)
 atmos=item(lighting,'Atmosphere','CoastalAtmosphere'); prop(atmos,'float','Density',0.25); prop(atmos,'float','Offset',0.1); prop(atmos,'Color3','Color',(0.79,0.86,0.9)); prop(atmos,'Color3','Decay',(0.47,0.55,0.61)); prop(atmos,'float','Haze',1)
-cc=item(lighting,'ColorCorrectionEffect','CoastalGrade'); prop(cc,'float','Contrast',0.08); prop(cc,'float','Saturation',-0.08); prop(cc,'Color3','TintColor',(1,0.98,0.94))
+cc=item(lighting,'ColorCorrectionEffect','CoastalGrade'); prop(cc,'float','Contrast',0.13); prop(cc,'float','Saturation',-0.02); prop(cc,'Color3','TintColor',(1,0.95,0.9))
 bloom=item(lighting,'BloomEffect','SoftHighlights'); prop(bloom,'float','Intensity',0.1); prop(bloom,'float','Size',20); prop(bloom,'float','Threshold',1.5)
 replicated=item(root,'ReplicatedStorage','ReplicatedStorage'); shared=folder(replicated,'Shared')
 server=item(root,'ServerScriptService','ServerScriptService'); server_folder=folder(server,'Server')
@@ -383,6 +461,6 @@ for dirname,parent in [('shared',shared),('server',server_folder),('client',clie
 item(root,'StarterGui','StarterGui'); item(root,'Teams','Teams'); item(root,'SoundService','SoundService'); item(root,'ServerStorage','ServerStorage')
 output=ROOT/'dist'/'HarborCity.rbxlx'; output.parent.mkdir(exist_ok=True)
 E.indent(root,space='  '); E.ElementTree(root).write(output,encoding='utf-8',xml_declaration=True)
-manifest={'title':'Harbor City','version':'0.2.0-alpha','instances':REF,'parts':sum(1 for x in root.iter('Item') if x.get('class') in ('Part','SpawnLocation','Seat')),'scripts':sum(1 for x in root.iter('Item') if x.get('class') in ('Script','LocalScript','ModuleScript')),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'runtime_tested':False,'external_assets':0}
+manifest={'title':'Harbor City','version':'0.3.0-alpha','instances':REF,'parts':sum(1 for x in root.iter('Item') if x.get('class') in ('Part','SpawnLocation','Seat')),'scripts':sum(1 for x in root.iter('Item') if x.get('class') in ('Script','LocalScript','ModuleScript')),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'runtime_tested':False,'external_assets':0}
 (ROOT/'dist'/'build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(json.dumps(manifest))
