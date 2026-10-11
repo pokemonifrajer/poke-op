@@ -141,7 +141,7 @@ function Vehicle:step(dt)
             local direction=horizontal.Unit
             local axis=math.abs(direction.X)>math.abs(direction.Z) and 0 or 1
             local openAxis=workspace:GetAttribute("TrafficPhase") or 0
-            if axis~=openAxis and not workspace:GetAttribute("TrafficAmber") then
+            if axis~=openAxis then
                 for _,x in ipairs({-180,0,180}) do for _,z in ipairs({-180,0,180}) do
                     local offset=Vector3.new(x-base.Position.X,0,z-base.Position.Z)
                     local ahead=offset:Dot(direction); local across=math.abs(offset.X*direction.Z-offset.Z*direction.X)
