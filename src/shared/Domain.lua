@@ -5,7 +5,7 @@ function Domain.integer(value, low, high)
 end
 function Domain.default(config)
     return {Version = config.DataVersion, Cash = config.StartingCash, Bank = config.StartingBank,
-        Cars = {commuter = true}, Colors = {}, Home = false, Transactions = {},
+        Cars = {commuter = true}, Colors = {}, Home = false, Homes = {}, Businesses = {}, Transactions = {},
         Wanted = 0, JailUntil = 0, LastCrime = 0, LastDecay = 0, RewardIds = {}}
 end
 function Domain.validate(data, config)
@@ -15,9 +15,19 @@ function Domain.validate(data, config)
     if not Domain.integer(data.Wanted, 0, 5) or not Domain.integer(data.JailUntil, 0, 100000000000) then return false end
     if type(data.Cars) ~= "table" or type(data.Transactions) ~= "table" or type(data.Colors) ~= "table" or type(data.RewardIds) ~= "table" then return false end
     if type(data.Home) ~= "boolean" or not Domain.integer(data.LastCrime, 0, 100000000000) or not Domain.integer(data.LastDecay, 0, 100000000000) then return false end
+    if data.Homes ~= nil and type(data.Homes) ~= "table" then return false end
+    if data.Businesses ~= nil and type(data.Businesses) ~= "table" then return false end
+    for id, owned in pairs(data.Homes or {}) do if not config.Properties[id] or type(owned) ~= "boolean" then return false end end
+    for id, owned in pairs(data.Businesses or {}) do if not config.Businesses[id] or type(owned) ~= "boolean" then return false end end
     for key, value in pairs(data.Cars) do if not config.Vehicles[key] or type(value) ~= "boolean" then return false end end
     for key, value in pairs(data.Colors) do if not config.Vehicles[key] or not Domain.integer(value, 1, 6) then return false end end
     return true
+end
+function Domain.normalize(data, config)
+    data.Homes = data.Homes or {}
+    data.Businesses = data.Businesses or {}
+    if data.Home then data.Homes.marina = true end
+    return data
 end
 function Domain.copy(value)
     if type(value) ~= "table" then return value end
@@ -58,6 +68,36 @@ function Domain.buyCar(data, id, config, now)
     local ok, reason = Domain.spend(data, car.Price, "Nákup: " .. car.Name, now)
     if ok then data.Cars[id] = true end
     return ok, reason
+end
+function Domain.ownsHome(data, id)
+    return (data.Homes and data.Homes[id] == true) or (id == "marina" and data.Home == true)
+end
+function Domain.buyHome(data, id, config, now)
+    local spec = config.Properties[id]
+    if not spec then return false, "Tato nemovitost není k prodeji." end
+    Domain.normalize(data, config)
+    if Domain.ownsHome(data, id) then return false, "Tuto nemovitost už vlastníš." end
+    local ok, reason = Domain.spend(data, spec.Price, "Nemovitost: " .. spec.Name, now)
+    if ok then data.Homes[id] = true; if id == "marina" then data.Home = true end end
+    return ok, reason
+end
+function Domain.buyBusiness(data, id, config, now)
+    local spec = config.Businesses[id]
+    if not spec then return false, "Tato firma není k dispozici." end
+    data.Businesses = data.Businesses or {}
+    if data.Businesses[id] then return false, "Tuto firmu už vlastníš." end
+    local ok, reason = Domain.spend(data, spec.Price, "Podnikání: " .. spec.Name, now)
+    if ok then data.Businesses[id] = true end
+    return ok, reason
+end
+function Domain.businessPayout(data, id, config, now)
+    local spec = config.Businesses[id]
+    if not spec or not data.Businesses or not data.Businesses[id] then return false end
+    local amount = math.min(spec.Income, config.MaxBalance - data.Bank)
+    if amount <= 0 then return false end
+    data.Bank = data.Bank + amount
+    Domain.log(data, "Výnos: " .. spec.Name, amount, now)
+    return true
 end
 function Domain.crime(data, stars, now)
     data.Wanted = math.min(5, math.max(data.Wanted, stars))

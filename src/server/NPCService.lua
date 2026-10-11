@@ -31,11 +31,16 @@ function NPC:rig(name,position,color)
 end
 function NPC:init(context)
     self.C=context; self.Folder=Instance.new("Folder"); self.Folder.Name="CityNPCs"; self.Folder.Parent=workspace
-    self.PatrolPoints={Vector3.new(-25,4,-155),Vector3.new(-155,4,-25),Vector3.new(-155,4,155),Vector3.new(155,4,155),Vector3.new(155,4,-25),Vector3.new(25,4,-155)}
+    self.PatrolPoints={
+        Vector3.new(-25,4,-155),Vector3.new(-155,4,-25),Vector3.new(-155,4,155),Vector3.new(155,4,155),
+        Vector3.new(155,4,-25),Vector3.new(25,4,-155),Vector3.new(-405,4,-190),Vector3.new(320,4,-200),
+        Vector3.new(340,4,350),Vector3.new(-405,4,175),Vector3.new(270,4,320),Vector3.new(-300,4,250),
+        Vector3.new(320,4,-390),Vector3.new(290,4,90),
+    }
     for i=1,4 do
         local a=self:rig("Hlídka "..i,self.PatrolPoints[i],Color3.fromRGB(42,65,90)); a.Police=true; table.insert(self.Agents,a)
     end
-    for i=1,6 do table.insert(self.Agents,self:rig("Obyvatel",self.PatrolPoints[i]+Vector3.new(7,0,7),Color3.fromHSV(i/8,0.25,0.65))) end
+    for i=1,10 do local point=self.PatrolPoints[i+4]; table.insert(self.Agents,self:rig("Obyvatel",point+Vector3.new(7,0,7),Color3.fromHSV(i/13,0.25,0.65))) end
 end
 function NPC:path(agent, goal)
     if agent.Computing or os.clock()<agent.NextPath then return end

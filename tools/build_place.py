@@ -103,16 +103,16 @@ def add_script(parent,path):
 workspace=item(root,'Workspace','Workspace'); prop(workspace,'bool','StreamingEnabled',True); prop(workspace,'int','StreamingMinRadius',96); prop(workspace,'int','StreamingTargetRadius',384); prop(workspace,'float','Gravity',196.2)
 city=item(workspace,'Model','City'); markers=folder(city,'Markers'); blocks=folder(city,'Buildings'); roads=folder(city,'Roads'); land=folder(city,'Landscape'); lights=folder(city,'StreetLights'); traffic=folder(city,'TrafficLights'); alarms=folder(city,'AlarmLights')
 # Ground is split around the underground prison route so the tunnel is physically empty.
-part(land,'DowntownGround',(0,-2,60),(860,4,680),'grass','grass')
+part(land,'DowntownGround',(0,-2,-20),(1120,4,1040),'grass','grass')
 part(land,'PrisonGroundWest',(-220,-2,-365),(420,4,170),'grass','grass')
 part(land,'PrisonGroundEast',(291,-2,-365),(278,4,170),'grass','grass')
 part(land,'PrisonNorth',(70,-2,-412),(160,4,76),'grass','grass')
 part(land,'PrisonSouth',(70,-2,-317),(160,4,86),'grass','grass')
 part(land,'TunnelRoof',(65,-0.5,-367),(164,1,15),'stone')
 # Ocean and promenade on the east edge.
-part(land,'HarborWater',(378,-1.1,30),(102,1,710),(48,95,112),'glass',collide=False,trans=0.2)
-part(land,'Quay',(309,0.3,10),(34,1,720),'walk')
-part(land,'Seawall',(327,-0.5,10),(2,5,720),'stone')
+part(land,'HarborWater',(493,-1.1,30),(112,1,930),(48,95,112),'glass',collide=False,trans=0.2)
+part(land,'Quay',(424,0.3,10),(26,1,720),'walk')
+part(land,'Seawall',(438,-0.5,10),(2,5,720),'stone')
 for z in range(-320,360,28):
     part(land,'QuayBollard',(323,1.5,z),(1,2.7,1),'ink','metal')
 # Ordered street grid with pedestrian sidewalks and crossing markings.
@@ -137,11 +137,40 @@ for x in (-180,0,180):
                 part(roads,'Crosswalk',(x+k,0.28,z+side*25),(2.4,0.04,7),'light','plastic',collide=False)
                 part(roads,'Crosswalk',(x+side*25,0.28,z+k),(7,0.04,2.4),'light','plastic',collide=False)
             part(traffic,'SignalPole',(x+side*25,5,z+side*25),(0.5,10,0.5),'ink','metal')
-            part(traffic,'Signal',(x+side*25,9,z+side*25),(1.1,1.6,1.1),(91,201,143),'neon',collide=False)
+            signal=item(traffic,'Model','Signal')
+            axis=item(signal,'IntValue','Axis'); prop(axis,'int','Value',0 if side==-1 else 1)
+            part(signal,'Housing',(x+side*25,9,z+side*25),(1.5,4.8,1.5),'ink','metal',collide=False)
+            for lamp_index,lamp_name in enumerate(('Red','Amber','Green')):
+                tint={'Red':(231,88,84),'Amber':(238,184,83),'Green':(91,201,143)}[lamp_name]
+                bulb=part(signal,lamp_name,(x+side*25,10.5-lamp_index*1.5,z+side*25),(0.9,0.9,0.9),tint,'neon',collide=False)
+                prop(bulb,'bool','Enabled',lamp_name=='Green')
 for x in (-155,155):
     for z in range(-220,341,70): lamp(x,z)
 for z in (-155,155):
     for x in range(-290,301,70): lamp(x,z)
+# A second set of streets connects the industrial area and southern campus.
+for z in (-465,440):
+    part(roads,'DistrictBoulevard',(0,0.12,z),(970,0.24,32),'road','asphalt')
+    for side in (-1,1): part(roads,'DistrictSidewalk',(0,0.4,z+side*21),(970,0.8,8),'walk')
+    for x in range(-430,451,18): part(roads,'LaneMark',(x,0.27,z),(8,0.04,0.35),'light','plastic',collide=False)
+for x,start,end in [(-405,-220,195),(340,-180,442),(490,-465,440)]:
+    center=(start+end)/2
+    part(roads,'DistrictBoulevard',(x,0.12,center),(32,0.24,end-start+32),'road','asphalt')
+    for side in (-1,1): part(roads,'DistrictSidewalk',(x+side*21,0.4,center),(8,0.8,end-start+32),'walk')
+for z in (-205,175):
+    part(roads,'IndustrialConnector',(-405,0.12,z),(190,0.24,30),'road','asphalt')
+    for side in (-1,1): part(roads,'DistrictSidewalk',(-405,0.4,z+side*19),(190,0.8,6),'walk')
+part(roads,'CampusBoulevard',(0,0.12,320),(800,0.24,32),'road','asphalt')
+for side in (-1,1): part(roads,'DistrictSidewalk',(0,0.4,320+side*21),(800,0.8,8),'walk')
+for x in (-180,180,340):
+    for side in (-1,1):
+        for k in range(-12,13,4): part(roads,'Crosswalk',(x+k,0.28,320+side*24),(2.4,0.04,6),'light','plastic',collide=False)
+    part(traffic,'SignalPole',(x+15,5,335),(0.5,10,0.5),'ink','metal')
+    signal=item(traffic,'Model','Signal')
+    axis=item(signal,'IntValue','Axis'); prop(axis,'int','Value',0 if x<0 else 1)
+    for lamp_index,lamp_name in enumerate(('Red','Amber','Green')):
+        tint={'Red':(231,88,84),'Amber':(238,184,83),'Green':(91,201,143)}[lamp_name]
+        part(signal,lamp_name,(x+15,10.5-lamp_index*1.5,335),(0.9,0.9,0.9),tint,'neon',collide=False)
 # Civic Bank: walkable lobby, security terminal, separate vault.
 bank=building('CIVIC BANK',-84,-84,88,72,20,'light',True)
 sign(bank,'C I V I C   B A N K',(-84,15,-47.6),60,4,'ink','light',math.pi)
@@ -167,6 +196,7 @@ marker('PoliceCar',(105,0.5,-35),visible=False)
 garage=building('ASTER AUTOHAUS',-85,86,87,65,18,'stone',True)
 sign(garage,'A S T E R   /   A U T O H A U S',(-85,13,118.8),73,3.6,'gold','ink',math.pi)
 marker('GarageDesk',(-110,4,105),(4,5,3),'ink'); marker('GarageCar',(-88,0.5,139),visible=False)
+marker('AutohausBusiness',(-101,4,100),(2,3,1),'gold')
 marker('CarRepair',(-53,1,138),(4,1.5,4),'gold')
 part(roads,'GarageApron',(-85,0.25,135),(96,0.5,26),'walk')
 for x in (-112,-86,-60): part(garage,'ServiceStripe',(x,0.9,85),(0.4,0.1,36),'gold','plastic',collide=False)
@@ -184,10 +214,22 @@ for spec in [('NORTH QUAY',-266,-87,67,85,68,'stone'),('MERIDIAN',267,-85,63,78,
     name,x,z,w,d,h,col=spec
     b=building(name,x,z,w,d,h,'stone' if col=='brick' else col)
     sign(b,name,(x,7,z+d/2+0.3),w-8,3.5,'light','ink',math.pi)
+# AURELIA Jewellers: walk-in showroom, security console and unlockable glass cases.
+jeweler=building('AURELIA JEWELLERS',267,270,78,67,18,'light',True)
+sign(jeweler,'A U R E L I A   /   J E W E L L E R S',(267,13,304),67,3.5,'gold','navy',math.pi)
+marker('JewelryTerminal',(267,4,296),(2,3,1),'gold')
+marker('JewelryLoot',(267,2,278),(12,3,5),'gold')
+part(markers,'JewelryCaseDoor',(267,5,275),(15,7,0.7),'ink','glass')
+for x in (252,260,274,282):
+    part(jeweler,'DisplayCabinet',(x,2.4,278),(6,1.7,4),'navy','metal')
+    part(jeweler,'DisplayGlass',(x,3.5,278),(5.8,0.25,3.8),'glass','glass',collide=False,trans=0.55)
+part(jeweler,'JewelryCounter',(266,2.4,286),(24,4.8,5),'wood','wood')
+part(jeweler,'CounterTop',(266,5,286),(24.3,0.25,5.3),'gold','metal')
 # Courier depot and port with gantry, containers and an escape hand-in.
 depot=building('HARBOR EXPRESS',-267,82,65,64,16,'light',True)
 sign(depot,'HARBOR EXPRESS',(-267,11,114.4),53,3,'gold','ink',math.pi)
 marker('JobDepot',(-267,3.5,104),(5,5,3),'gold')
+marker('CourierBusiness',(-260,3.5,97),(2,3,1),'gold')
 for x in (-286,-279,-252): part(depot,'Parcel',(x,1.6,74),(4,3,4),'wood','wood')
 part(roads,'DepotApron',(-267,0.3,134),(85,0.6,37),'walk')
 part(land,'PortHardstanding',(264,0.4,82),(73,0.8,124),'walk')
@@ -199,6 +241,22 @@ part(blocks,'GantryBeam',(273,40,9),(58,4,5),'gold','metal')
 part(blocks,'CraneCable',(280,28,9),(0.25,20,0.25),'ink','metal',collide=False)
 marker('Dropoff',(289,3,115),(3,4,3),'teal'); sign(blocks,'QUAY 04',(289,8,116),17,2,'light','ink',math.pi)
 marker('DeliveryDrop',(241,3,118),(4,5,3),'gold')
+# An armoured van, private depot and secure cargo recovery point.
+warehouse=building('HARBOR SECURE LOGISTICS',-463,110,72,68,17,'navy',True)
+sign(warehouse,'HARBOR SECURE',(-463,12,144),59,3,'light','navy',math.pi)
+marker('ConvoyStart',(-463,3,147),(3,4,2),'gold')
+part(warehouse,'SecurityConsole',(-446,3,119),(5,5,2),'ink','metal')
+part(warehouse,'SafeTable',(-447,2,91),(16,1,7),'wood','wood')
+marker('ConvoyLoot',(-463,3,86),(5,2,3),'gold')
+van=item(blocks,'Model','ARMOURED SECURITY VAN')
+part(van,'Body',(-463,2.5,72),(7,2.4,13),'navy','metal')
+part(van,'Cabin',(-463,4.6,76),(6.2,2.2,5),'glass','glass',collide=False,trans=0.25)
+for x in (-466.5,-459.5):
+    for z in (67.5,77.5):
+        wheel=part(van,'ArmouredWheel',(x,1.2,z),(1,2.2,2.2),'ink','metal'); prop(wheel,'token','shape',2)
+part(van,'ArmourBand',(-463,3.2,68),(7.1,0.35,0.2),'gold','metal',collide=False)
+part(van,'RearDoor',(-463,2.6,78.6),(5.8,1.8,0.3),'light','metal')
+sign(land,'INDUSTRIAL DISTRICT',(-463,9,163),52,3,'light','navy',math.pi)
 # One furnished apartment interior, explicitly shared alpha interior in documentation.
 home=building('MARINA RESIDENCE',84,270,82,64,17,'light',True)
 sign(home,'MARINA RESIDENCE',(84,12,302.6),67,3,'ink','light',math.pi)
@@ -210,6 +268,63 @@ for x in (57,63): part(home,'TableLeg',(x,1,264),(0.5,2,3),'ink','metal')
 part(home,'Kitchen',(108,3,247),(22,6,7),'navy'); part(home,'Counter',(108,6.2,247),(22,0.4,7),'light')
 part(home,'Bed',(108,1.8,276),(12,3,16),'stone'); part(home,'Mattress',(108,3.6,276),(11.7,0.7,15.5),'light')
 seat=part(home,'Seat',(60,3.45,254),(5,0.3,3),'teal',cls='Seat',trans=1,collide=False)
+# Two additional buyable homes with individual walkable interiors and entry points.
+westwood=building('WESTWOOD HOUSE',-350,255,52,44,15,'stone',True)
+sign(westwood,'W E S T W O O D   H O U S E',(-350,11,277.4),43,3,'light','navy',math.pi)
+marker('WestwoodHomeDesk',(-350,3,282),(2,3,2),'gold')
+marker('WestwoodHomeEnter',(-350,3,278),visible=False)
+marker('WestwoodHomeInside',(-350,2,255),visible=False)
+marker('WestwoodHomeLeave',(-350,3,273),(2,3,1),'teal')
+part(westwood,'LivingSofa',(-360,1.8,244),(13,3,4),'teal'); part(westwood,'Kitchen',(-337,3,239),(17,6,6),'navy')
+part(westwood,'BedroomBed',(-337,1.8,266),(11,3,13),'stone'); part(westwood,'BedroomMattress',(-337,3.5,266),(10.6,0.5,12.5),'light')
+northhill=building('NORTH HILL VILLA',320,-340,58,48,17,'light',True)
+sign(northhill,'N O R T H   H I L L   V I L L A',(320,13,-315.4),49,3,'gold','navy',math.pi)
+marker('NorthHillHomeDesk',(320,3,-311),(2,3,2),'gold')
+marker('NorthHillHomeEnter',(320,3,-316),visible=False)
+marker('NorthHillHomeInside',(320,2,-340),visible=False)
+marker('NorthHillHomeLeave',(320,3,-321),(2,3,1),'teal')
+part(northhill,'LivingSofa',(309,1.8,-351),(14,3,4),'teal'); part(northhill,'Kitchen',(335,3,-356),(18,6,6),'navy')
+part(northhill,'BedroomBed',(335,1.8,-329),(12,3,14),'stone'); part(northhill,'BedroomMattress',(335,3.5,-329),(11.6,0.5,13.5),'light')
+# NORTHGATE High School: campus, staffed lobby, real classes, library and gym.
+school=building('NORTHGATE HIGH SCHOOL',270,390,96,78,23,'stone',True)
+sign(school,'N O R T H G A T E   H I G H',(270,17,429),84,4,'navy','light',math.pi)
+marker('SchoolEntrance',(270,3,431),(4,4,2),'teal')
+marker('SchoolInside',(270,2,390),visible=False)
+marker('SchoolLeave',(270,3,434),visible=False)
+part(school,'SchoolReception',(246,2.4,409),(22,4.8,5),'wood','wood')
+part(school,'ReceptionTop',(246,5,409),(22.3,0.25,5.3),'navy','metal')
+part(school,'ClassroomBoard',(243,8,383),(24,9,0.5),'navy','metal')
+for row in range(3):
+    for col in range(4):
+        x=246+col*10; z=377+row*9
+        part(school,'StudentDesk',(x,3,z),(6,1,4),'wood','wood')
+        part(school,'DeskLeg',(x,1.8,z),(0.3,2,0.3),'ink','metal')
+part(school,'LibraryShelf',(290,5,379),(14,9,4),'wood','wood')
+part(school,'GymnasiumFloor',(270,0.9,401),(31,0.5,25),'walk')
+for x in (256,284): part(school,'GymGoal',(x,8,402),(0.6,9,0.6),'light','metal')
+for x,z in ((223,454),(250,462),(294,458),(319,453)):
+    tree(x,z,0.8); bench(land,x,z+9)
+# Harbor International: terminal, taxi apron, runway markings, lights and a generic display aircraft.
+airport=building('HARBOR INTERNATIONAL TERMINAL',390,350,62,44,18,'light',True)
+sign(airport,'H A R B O R   I N T E R N A T I O N A L',(390,13,372.4),54,3,'teal','navy',math.pi)
+marker('AirportDesk',(390,3,374),(3,3,2),'teal')
+part(airport,'CheckInDesk',(379,2.5,353),(22,5,5),'navy','metal')
+part(airport,'CheckInCounter',(379,5.2,353),(22.4,0.3,5.4),'light','metal')
+part(roads,'TaxiApron',(392,0.25,315),(32,0.5,72),'walk')
+part(roads,'Runway',(395,0.2,170),(42,0.4,260),'road','asphalt')
+for z in range(55,291,24):
+    part(roads,'RunwayCenterMark',(395,0.43,z),(1.2,0.06,10),'light','plastic',collide=False)
+    for x in (372,418):
+        p=part(lights,'RunwayLight',(x,0.7,z),(0.8,0.5,0.8),'teal','neon',collide=False)
+        lamp=item(p,'PointLight','RunwayGlow'); prop(lamp,'float','Range',11); prop(lamp,'float','Brightness',0.35); prop(lamp,'bool','Enabled',False); prop(lamp,'Color3','Color',(0.37,0.78,0.82))
+plane=item(blocks,'Model','HARBOR AIR DISPLAY')
+part(plane,'Fuselage',(394,4,207),(4,3,27),'light','metal')
+part(plane,'Wing',(394,4,207),(30,1,6),'navy','metal')
+part(plane,'TailWing',(394,8,218),(12,0.8,4),'teal','metal')
+part(plane,'TailFin',(394,7,218),(1,6,5),'light','metal')
+for z in (199,214):
+    for x in (387,401):
+        wheel=part(plane,'LandingGear',(x,1.1,z),(0.6,2,0.6),'ink','metal'); prop(wheel,'token','shape',2)
 # Prison: surrounding walls, towers, accessible cells, yard, mess hall, laundry.
 prison=item(blocks,'Model','NORTHGATE CORRECTIONAL')
 part(prison,'PrisonFloor',(-2,0.3,-359),(198,0.6,146),'walk')
@@ -268,6 +383,6 @@ for dirname,parent in [('shared',shared),('server',server_folder),('client',clie
 item(root,'StarterGui','StarterGui'); item(root,'Teams','Teams'); item(root,'SoundService','SoundService'); item(root,'ServerStorage','ServerStorage')
 output=ROOT/'dist'/'HarborCity.rbxlx'; output.parent.mkdir(exist_ok=True)
 E.indent(root,space='  '); E.ElementTree(root).write(output,encoding='utf-8',xml_declaration=True)
-manifest={'title':'Harbor City','version':'0.1.0-alpha','instances':REF,'parts':sum(1 for x in root.iter('Item') if x.get('class') in ('Part','SpawnLocation','Seat')),'scripts':sum(1 for x in root.iter('Item') if x.get('class') in ('Script','LocalScript','ModuleScript')),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'runtime_tested':False,'external_assets':0}
+manifest={'title':'Harbor City','version':'0.2.0-alpha','instances':REF,'parts':sum(1 for x in root.iter('Item') if x.get('class') in ('Part','SpawnLocation','Seat')),'scripts':sum(1 for x in root.iter('Item') if x.get('class') in ('Script','LocalScript','ModuleScript')),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'runtime_tested':False,'external_assets':0}
 (ROOT/'dist'/'build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(json.dumps(manifest))

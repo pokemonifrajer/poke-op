@@ -35,27 +35,29 @@ function Vehicle:spawn(player, id)
     local model = Instance.new("Model"); model.Name = spec.Name; model:SetAttribute("OwnerId", player.UserId)
     local bodyColor = palette[data.Colors[id] or 1]
     if spec.Police then bodyColor = Color3.fromRGB(29,42,60) end
-    local base = Util.part(model, "Chassis", Vector3.new(6.7,1.5,12), CFrame.new(pad.Position + Vector3.new(0,1.8,0)), bodyColor, false)
+    local width,length=spec.Width or 6.7,spec.Length or 12
+    local sx,sz=width/6.7,length/12
+    local base = Util.part(model, "Chassis", Vector3.new(width,1.5,length), CFrame.new(pad.Position + Vector3.new(0,1.8,0)), bodyColor, false)
     base.CustomPhysicalProperties = PhysicalProperties.new(1.1,0.25,0.05,1,1)
     model.PrimaryPart = base
-    welded(model,base,"Hood",Vector3.new(6.5,0.8,3.8),CFrame.new(0,0.8,-3.7),bodyColor)
-    welded(model,base,"Roof",Vector3.new(5.5,0.45,5.4),CFrame.new(0,3,0.5),bodyColor)
-    local windshield = welded(model,base,"Windshield",Vector3.new(5.4,2.1,0.2),CFrame.new(0,1.9,-2.1)*CFrame.Angles(math.rad(-14),0,0),Color3.fromRGB(86,130,146))
+    welded(model,base,"Hood",Vector3.new(width*0.97,0.8,length*0.32),CFrame.new(0,0.8,-length*0.31),bodyColor)
+    welded(model,base,"Roof",Vector3.new(width*0.82,0.45,length*0.45),CFrame.new(0,3,length*0.04),bodyColor)
+    local windshield = welded(model,base,"Windshield",Vector3.new(width*0.81,2.1,0.2),CFrame.new(0,1.9,-length*0.175)*CFrame.Angles(math.rad(-14),0,0),Color3.fromRGB(86,130,146))
     windshield.Material = Enum.Material.Glass; windshield.Transparency = 0.35
     for _, x in ipairs({-2.85,2.85}) do
-        for _, z in ipairs({-2.1,3}) do welded(model,base,"Pillar",Vector3.new(0.25,2.5,0.3),CFrame.new(x,1.8,z),bodyColor) end
+        for _, z in ipairs({-length*0.175,length*0.25}) do welded(model,base,"Pillar",Vector3.new(0.25,2.5,0.3),CFrame.new(x,1.8,z),bodyColor) end
     end
-    welded(model,base,"RearWindow",Vector3.new(5.3,1.8,0.25),CFrame.new(0,1.8,3),Color3.fromRGB(53,75,91))
+    welded(model,base,"RearWindow",Vector3.new(width*0.79,1.8,0.25),CFrame.new(0,1.8,length*0.25),Color3.fromRGB(53,75,91))
     local wheels = {}
-    for _, x in ipairs({-3.4,3.4}) do
-        for _, z in ipairs({-3.7,3.7}) do
+    for _, x in ipairs({-width*0.51,width*0.51}) do
+        for _, z in ipairs({-length*0.31,length*0.31}) do
             local w = welded(model,base,"Wheel",Vector3.new(1.2,2.6,2.6),CFrame.new(x,-0.4,z),Color3.fromRGB(22,25,31),Enum.PartType.Cylinder)
             table.insert(wheels,w)
             welded(model,base,"Rim",Vector3.new(1.24,1.55,1.55),CFrame.new(x,-0.4,z),Color3.fromRGB(128,139,151),Enum.PartType.Cylinder)
         end
     end
     local seat = Instance.new("VehicleSeat"); seat.Name = "Driver"; seat.Size = Vector3.new(2.1,0.65,2)
-    seat.CFrame = base.CFrame * CFrame.new(-1.35,1,0.2); seat.CanCollide = false; seat.Massless = true; seat.HeadsUpDisplay = false; seat.MaxSpeed = 0; seat.Parent = model
+    seat.CFrame = base.CFrame * CFrame.new(-width*0.2,1,length*0.02); seat.CanCollide = false; seat.Massless = true; seat.HeadsUpDisplay = false; seat.MaxSpeed = 0; seat.Parent = model
     local sw = Instance.new("WeldConstraint"); sw.Part0=base; sw.Part1=seat; sw.Parent=seat
     local attachment = Instance.new("Attachment"); attachment.Parent=base
     local velocity = Instance.new("LinearVelocity"); velocity.Attachment0=attachment
@@ -66,12 +68,12 @@ function Vehicle:spawn(player, id)
     align.MaxTorque=150000; align.MaxAngularVelocity=3; align.Responsiveness=12; align.CFrame=base.CFrame.Rotation; align.Parent=base
     local spring=Instance.new("VectorForce"); spring.Attachment0=attachment; spring.RelativeTo=Enum.ActuatorRelativeTo.World; spring.ApplyAtCenterOfMass=true; spring.Parent=base
     local lights={}; local indicators={}
-    for _, x in ipairs({-2.4,2.4}) do
-        local lens=welded(model,base,"Headlamp",Vector3.new(1.5,0.5,0.2),CFrame.new(x,0.35,-6.05),Color3.fromRGB(238,231,199))
+    for _, x in ipairs({-width*0.36,width*0.36}) do
+        local lens=welded(model,base,"Headlamp",Vector3.new(1.5,0.5,0.2),CFrame.new(x,0.35,-length*0.5-0.05),Color3.fromRGB(238,231,199))
         lens.Material=Enum.Material.Neon
         local spot=Instance.new("SpotLight"); spot.Face=Enum.NormalId.Front; spot.Range=65; spot.Angle=75; spot.Brightness=2; spot.Enabled=false; spot.Parent=lens; table.insert(lights,spot)
-        welded(model,base,"TailLight",Vector3.new(1.4,0.4,0.2),CFrame.new(x,0.4,6.05),Color3.fromRGB(151,47,48)).Material=Enum.Material.Neon
-        table.insert(indicators,welded(model,base,"Indicator",Vector3.new(0.5,0.45,0.22),CFrame.new(x,0.8,-6.06),Color3.fromRGB(89,64,30)))
+        welded(model,base,"TailLight",Vector3.new(1.4,0.4,0.2),CFrame.new(x,0.4,length*0.5+0.05),Color3.fromRGB(151,47,48)).Material=Enum.Material.Neon
+        table.insert(indicators,welded(model,base,"Indicator",Vector3.new(0.5,0.45,0.22),CFrame.new(x,0.8,-length*0.5-0.06),Color3.fromRGB(89,64,30)))
     end
     local bars={}
     if spec.Police then
@@ -133,9 +135,22 @@ function Vehicle:step(dt)
         local mass=base.AssemblyMass
         car.Spring.Force=grounded and Vector3.new(0,math.clamp(mass*(workspace.Gravity+(1.8-hit.Distance)*70-base.AssemblyLinearVelocity.Y*12),0,mass*workspace.Gravity*3),0) or Vector3.zero
         car.Velocity.Enabled=grounded~=nil and grounded~=false
-        local target=car.Throttle*car.Spec.Speed*(car.Throttle<0 and 0.4 or 1)
+        local target=car.Throttle*car.Spec.Speed*(car.Throttle<0 and 0.4 or 1); car.TrafficStop=false
+        local horizontal=Vector3.new(base.AssemblyLinearVelocity.X,0,base.AssemblyLinearVelocity.Z)
+        if math.abs(car.Speed)>3 and horizontal.Magnitude>1 then
+            local direction=horizontal.Unit
+            local axis=math.abs(direction.X)>math.abs(direction.Z) and 0 or 1
+            local openAxis=workspace:GetAttribute("TrafficPhase") or 0
+            if axis~=openAxis and not workspace:GetAttribute("TrafficAmber") then
+                for _,x in ipairs({-180,0,180}) do for _,z in ipairs({-180,0,180}) do
+                    local offset=Vector3.new(x-base.Position.X,0,z-base.Position.Z)
+                    local ahead=offset:Dot(direction); local across=math.abs(offset.X*direction.Z-offset.Z*direction.X)
+                    if ahead>0 and ahead<48 and across<15 then target=0; car.TrafficStop=true end
+                end end
+            end
+        end
         if car.Health<=0 or car.Brake then target=0 end
-        local acceleration=(car.Brake or car.Throttle==0) and 65 or car.Spec.Acceleration
+        local acceleration=car.TrafficStop and 150 or (car.Brake or car.Throttle==0) and 65 or car.Spec.Acceleration
         car.Speed=car.Speed+math.clamp(target-car.Speed,-acceleration*dt,acceleration*dt)
         car.Yaw=car.Yaw-car.Steer*math.clamp(car.Speed/28,-1,1)*1.6*dt
         local forward=CFrame.Angles(0,car.Yaw,0).LookVector

@@ -17,7 +17,7 @@ local NPC=require(script.Parent.NPCService)
 local Traffic=require(script.Parent.TrafficService)
 local city=workspace:WaitForChild("City",20)
 assert(city,"City map is missing. Open dist/HarborCity.rbxlx, or run tools/build_place.py.")
-local C={Data=Data,Vehicles=Vehicles,Prison=Prison,Heist=Heist,Roles={},Jobs={},Teams={},Remotes={},RespawnAt={},Movement={},PlayerArrests={},JoinAt={},HomeGuests={},HomeLocked={}}
+local C={Data=Data,Vehicles=Vehicles,Prison=Prison,Heist=Heist,Roles={},Jobs={},Teams={},Remotes={},RespawnAt={},Movement={},PlayerArrests={},JoinAt={},HomeGuests={},HomeLocked={},CurrentHome={},BusinessNext={}}
 local folder=Instance.new("Folder"); folder.Name="Network"; folder.Parent=ReplicatedStorage
 for _,name in ipairs({"Action","Drive","State","Notify","Hack","OpenPanel"}) do local remote=Instance.new("RemoteEvent"); remote.Name=name; remote.Parent=folder; C.Remotes[name]=remote end
 for _,name in ipairs({"Civilian","Police","Prisoner"}) do
@@ -47,7 +47,7 @@ function C:push(p)
             if otherProfile.Ready and otherProfile.Data.Wanted>0 then table.insert(roster,{Id=other.UserId,Name=other.DisplayName,Wanted=otherProfile.Data.Wanted}) end
         end
     end
-    self.Remotes.State:FireClient(p,{Cash=d.Cash,Bank=d.Bank,Cars=d.Cars,Colors=d.Colors,Home=d.Home,HomeLocked=self.HomeLocked[p]~=false,
+    self.Remotes.State:FireClient(p,{Cash=d.Cash,Bank=d.Bank,Cars=d.Cars,Colors=d.Colors,Home=d.Home or Domain.ownsHome(d,"marina"),Homes=d.Homes or {},Businesses=d.Businesses or {},HomeLocked=self.HomeLocked[p]~=false,
         Wanted=d.Wanted,Jail=math.max(0,d.JailUntil-os.time()),Role=self.Roles[p] or "Civilian",Transactions=d.Transactions,
         SaveMode=profile.Mode,Version=Config.Version,Heist=Heist:snapshot(p),Key=Prison.Keys[p] or false,
         Job=self.Jobs[p] and {Name="Rozvoz zásilek",Target=self.Jobs[p].Target,Deadline=math.max(0,self.Jobs[p].Deadline-os.time())} or nil,
@@ -70,6 +70,7 @@ Vehicles:init(C); Prison:init(C); Heist:init(C); NPC:init(C); Traffic:init()
 C:bind("GarageDesk","Otevřít garáž","ASTER • autohaus",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Garage") end)
 C:bind("BankATM","Otevřít banku","Bankomat",0,function(p) if not Prison:jailed(p) then C.Remotes.OpenPanel:FireClient(p,"Bank") end end)
 C:bind("PoliceDesk","Zvolit službu","Policejní stanice",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Jobs") end)
+C:bind("AirportDesk","Otevřít letištní halu","Harbor International",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Jobs") end)
 C:bind("JobDepot","Vyzvednout zásilku","Harbor Express",1,function(p) C:startJob(p) end)
 C:bind("DeliveryDrop","Doručit zásilku","Přístavní kancelář",2,function(p)
     local job=C.Jobs[p]; local d=Data:get(p)
@@ -77,13 +78,18 @@ C:bind("DeliveryDrop","Doručit zásilku","Přístavní kancelář",2,function(p
     if os.clock()-job.Started<Config.DeliverySeconds or os.time()>job.Deadline then C:notify(p,"Dodávka nemá platný čas."); return end
     if Domain.reward(d,Config.DeliveryReward,job.Id,"Doručení zásilky",Config,os.time()) then C.Jobs[p]=nil; C:notify(p,"Zásilka doručena: +$"..Config.DeliveryReward); C:push(p) end
 end)
-C:bind("HomeDesk","Spravovat byt","Marina Residence",0,function(p) C.Remotes.OpenPanel:FireClient(p,"Home") end)
-C:bind("HomeEnter","Vstoupit","Marina • vstup",0,function(p)
-    local d=Data:get(p)
-    if d and d.Home and clean(p) then C:teleport(p,city.Markers.HomeInside.Position+Vector3.new(0,3,0))
-    else C:notify(p,"Vstup do bytu je pro vlastníka bez hledanosti.") end
-end)
-C:bind("HomeLeave","Odejít","Marina Residence",0,function(p) C:teleport(p,city.Markers.HomeDesk.Position+Vector3.new(0,3,8)) end)
+for id,spec in pairs(Config.Properties) do
+    C:bind(spec.DeskMarker,"Spravovat nemovitost",spec.Name,0,function(p) C.Remotes.OpenPanel:FireClient(p,"Home") end)
+    C:bind(spec.EnterMarker,"Vstoupit",spec.Name,0,function(p)
+        local d=Data:get(p)
+        if d and Domain.ownsHome(d,id) and clean(p) then
+            C.CurrentHome[p]=id; C:teleport(p,city.Markers[spec.InsideMarker].Position+Vector3.new(0,3,0)); C:push(p)
+        else C:notify(p,"Vstup je pro vlastníka bez hledanosti.") end
+    end)
+    C:bind(spec.OutsideMarker,"Odejít",spec.Name,0,function(p)
+        if C.CurrentHome[p]==id then C.CurrentHome[p]=nil; C:teleport(p,city.Markers[spec.DeskMarker].Position+Vector3.new(0,3,8)) end
+    end)
+end
 C:bind("CarRepair","Opravit vůz • $250","Servis",2,function(p)
     local d=Data:get(p); local car=Vehicles.ByPlayer[p]
     if d and car and clean(p) and (car.Base.Position-city.Markers.CarRepair.Position).Magnitude<22 and car.Base.AssemblyLinearVelocity.Magnitude<3 then
@@ -94,6 +100,7 @@ C:bind("CarRepair","Opravit vůz • $250","Servis",2,function(p)
 end)
 local actions={}
 actions.snapshot=function(p) C:push(p) end
+actions.startHeist=function(p,mode) if type(mode)~="string" or #mode>20 then return false end; return Heist:start(p,mode) end
 actions.deposit=function(p,amount) return Domain.transfer(Data:get(p),"deposit",amount,Config,os.time()) end
 actions.withdraw=function(p,amount) return Domain.transfer(Data:get(p),"withdraw",amount,Config,os.time()) end
 actions.buyCar=function(p,id)
@@ -124,28 +131,40 @@ actions.job=function(p)
     C:startJob(p); return true
 end
 actions.cancelJob=function(p) C.Jobs[p]=nil; return true,"Rozvoz zrušen." end
-actions.homeBuy=function(p)
-    local d=Data:get(p)
-    if d.Home then return false,"Byt už vlastníš." end
-    if not clean(p) or not Util.near(p,city.Markers.HomeDesk.Position,20) then return false,"Nákup je dostupný v Marina Residence." end
-    local ok,reason=Domain.spend(d,18000,"Marina • byt",os.time()); if ok then d.Home=true end; return ok,reason
+actions.homeBuy=function(p,id)
+    local d=Data:get(p); id=type(id)=="string" and id or "marina"
+    local spec=Config.Properties[id]
+    if not spec then return false,"Nemovitost není v nabídce." end
+    if not clean(p) or not Util.near(p,city.Markers[spec.DeskMarker].Position,20) then return false,"Kup nemovitost osobně u její recepce." end
+    return Domain.buyHome(d,id,Config,os.time())
 end
 actions.homeLock=function(p)
-    local d=Data:get(p); if not d.Home then return false,"Nevlastníš byt." end
+    local d=Data:get(p); local owns=false
+    for id in pairs(Config.Properties) do if Domain.ownsHome(d,id) then owns=true end end
+    if not owns then return false,"Nevlastníš žádnou nemovitost." end
     C.HomeLocked[p]=not (C.HomeLocked[p]~=false); return true,C.HomeLocked[p] and "Pozvánky do bytu uzamčeny." or "Můžeš pozvat hráče ze serveru."
 end
 actions.homeInvite=function(p,id)
-    local d=Data:get(p); if not d.Home or C.HomeLocked[p]~=false or not Domain.integer(id,1,100000000000) then return false,"Nejdřív odemkni pozvánky." end
-    if not Util.near(p,city.Markers.HomeInside.Position,45) or not clean(p) then return false,"Pozvánku lze poslat z vlastního bytu." end
+    local d=Data:get(p); local home=C.CurrentHome[p]; local spec=home and Config.Properties[home]
+    if not spec or not Domain.ownsHome(d,home) or C.HomeLocked[p]~=false or not Domain.integer(id,1,100000000000) then return false,"Vejdi do své nemovitosti a povol pozvánky." end
+    if not Util.near(p,city.Markers[spec.InsideMarker].Position,45) or not clean(p) then return false,"Pozvánku lze poslat zevnitř nemovitosti." end
     local guest=Players:GetPlayerByUserId(id)
     if not guest or guest==p or not clean(guest) then return false,"Hráč není dostupný." end
-    C.HomeGuests[guest]={Owner=p,Until=os.clock()+30}; C:notify(guest,p.DisplayName.." tě zve do bytu. Pozvánku přijmi v telefonu → Byt.")
+    C.HomeGuests[guest]={Owner=p,Home=home,Until=os.clock()+30}; C:notify(guest,p.DisplayName.." tě zve domů. Pozvánku přijmi v telefonu → Byt.")
     return true,"Pozvánka odeslána."
 end
 actions.homeAccept=function(p)
     local invite=C.HomeGuests[p]
-    if not invite or invite.Until<os.clock() or not invite.Owner.Parent or C.HomeLocked[invite.Owner]~=false or not clean(p) or not Util.near(invite.Owner,city.Markers.HomeInside.Position,45) then return false,"Žádná platná pozvánka." end
-    C.HomeGuests[p]=nil; C:teleport(p,city.Markers.HomeInside.Position+Vector3.new(3,3,0)); return true
+    local spec=invite and Config.Properties[invite.Home]
+    if not invite or not spec or invite.Until<os.clock() or not invite.Owner.Parent or C.HomeLocked[invite.Owner]~=false or not clean(p) or not Util.near(invite.Owner,city.Markers[spec.InsideMarker].Position,45) then return false,"Žádná platná pozvánka." end
+    C.HomeGuests[p]=nil; C.CurrentHome[p]=invite.Home; C:teleport(p,city.Markers[spec.InsideMarker].Position+Vector3.new(3,3,0)); return true
+end
+actions.buyBusiness=function(p,id)
+    local d=Data:get(p); local spec=type(id)=="string" and Config.Businesses[id]
+    if not spec or not clean(p) or not Util.near(p,city.Markers[spec.Marker].Position,20) then return false,"Firmu kup osobně na jejím pracovišti." end
+    local ok,reason=Domain.buyBusiness(d,id,Config,os.time())
+    if ok then C.BusinessNext[p]=C.BusinessNext[p] or {}; C.BusinessNext[p][id]=os.clock()+spec.Interval end
+    return ok,reason
 end
 actions.lights=function(p) return Vehicles:action(p,"lights") end
 actions.signal=function(p) return Vehicles:action(p,"signal") end
@@ -196,6 +215,8 @@ end
 local function onPlayer(p)
     if not Data:load(p) then return end
     if not p.Parent then Data:save(p,true); return end
+    C.BusinessNext[p]={}; local saved=Data:get(p)
+    for id,spec in pairs(Config.Businesses) do if saved and saved.Businesses and saved.Businesses[id] then C.BusinessNext[p][id]=os.clock()+spec.Interval end end
     C.Roles[p]="Civilian"; p.Team=C.Teams.Civilian; C.JoinAt[p]=os.time()
     p.CharacterAdded:Connect(function(c) onCharacter(p,c) end)
     if p.Character then task.spawn(onCharacter,p,p.Character) end
@@ -205,7 +226,7 @@ Players.PlayerAdded:Connect(onPlayer)
 for _,p in ipairs(Players:GetPlayers()) do task.spawn(onPlayer,p) end
 Players.PlayerRemoving:Connect(function(p)
     Heist:remove(p); Vehicles:remove(p); Prison:remove(p)
-    C.Roles[p]=nil; C.Jobs[p]=nil; C.Movement[p]=nil; C.PlayerArrests[p]=nil; C.JoinAt[p]=nil; C.HomeGuests[p]=nil; C.HomeLocked[p]=nil; C.RespawnAt[p]=nil
+    C.Roles[p]=nil; C.Jobs[p]=nil; C.Movement[p]=nil; C.PlayerArrests[p]=nil; C.JoinAt[p]=nil; C.HomeGuests[p]=nil; C.HomeLocked[p]=nil; C.CurrentHome[p]=nil; C.BusinessNext[p]=nil; C.RespawnAt[p]=nil
     Data:save(p,true)
 end)
 Data:start()
@@ -226,6 +247,15 @@ RunService.Heartbeat:Connect(function(dt)
         for p,profile in pairs(Data.Profiles) do
             local d=Data:get(p)
             if d then
+                for id,spec in pairs(Config.Businesses) do
+                    if d.Businesses and d.Businesses[id] then
+                        C.BusinessNext[p]=C.BusinessNext[p] or {}; C.BusinessNext[p][id]=C.BusinessNext[p][id] or os.clock()+spec.Interval
+                        if os.clock()>=C.BusinessNext[p][id] then
+                            if Domain.businessPayout(d,id,Config,os.time()) then C:notify(p,spec.Name.." vydělala +$"..spec.Income.." na účet.") end
+                            C.BusinessNext[p][id]=os.clock()+spec.Interval
+                        end
+                    end
+                end
                 Domain.decay(d,os.time(),NPC.Seen[p] or Heist:snapshot(p)~=nil,Config.HeatDecaySeconds)
                 local root,h=Util.root(p)
                 if root then
@@ -253,11 +283,21 @@ RunService.Heartbeat:Connect(function(dt)
         local night=Lighting.ClockTime<6 or Lighting.ClockTime>18
         for _,light in ipairs(city.StreetLights:GetDescendants()) do if light:IsA("PointLight") then light.Enabled=night end end
         for _,lamp in ipairs(city.AlarmLights:GetChildren()) do lamp.Color=workspace:GetAttribute("BankAlarm") and Color3.fromRGB(245,70,70) or Color3.fromRGB(45,71,79) end
-        local phase=math.floor(os.clock()/12)%2; workspace:SetAttribute("TrafficPhase",phase)
-        for i,light in ipairs(city.TrafficLights:GetChildren()) do
-            if light.Name=="Signal" then
-                local axis=math.floor(i/2)%2
-                light.Color=axis==phase and Color3.fromRGB(91,201,143) or Color3.fromRGB(231,88,84)
+        local signalClock=os.clock()%24; local phase=math.floor(signalClock/12)
+        local amber=signalClock%12>=9
+        workspace:SetAttribute("TrafficPhase",phase); workspace:SetAttribute("TrafficAmber",amber)
+        for index,signal in ipairs(city.TrafficLights:GetChildren()) do
+            if signal.Name=="Signal" then
+                local axisMarker=signal:FindFirstChild("Axis")
+                local axis=axisMarker and axisMarker.Value or math.floor((index-1)/2)%2
+                local go=axis==phase
+                for _,lamp in ipairs(signal:GetChildren()) do
+                    if lamp:IsA("BasePart") and lamp.Name~="Housing" then
+                        local active=(lamp.Name=="Red" and not go) or (lamp.Name=="Amber" and go and amber) or (lamp.Name=="Green" and go and not amber)
+                        lamp.Material=active and Enum.Material.Neon or Enum.Material.SmoothPlastic
+                        lamp.Transparency=active and 0 or 0.58
+                    end
+                end
             end
         end
     end

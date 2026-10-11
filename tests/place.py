@@ -14,9 +14,16 @@ def size(el): return tuple(float(el.findtext(f"Properties/Vector3[@name='size']/
 workspace=child(root,'Workspace'); city=child(workspace,'City'); markers=child(city,'Markers')
 marker_names={name(x) for x in markers.findall('Item')}
 source='\n'.join(p.read_text() for p in (root_dir/'src/server').glob('*.lua'))
-required=set(re.findall(r':bind\("(\w+)"',source))|{'VaultDoor','GarageCar','PoliceCar','PrisonSpawn','PrisonOutside','TunnelStart','HomeInside'}
+required=set(re.findall(r':bind\("(\w+)"',source))|{'VaultDoor','GarageCar','PoliceCar','PrisonSpawn','PrisonOutside','TunnelStart','HomeInside','AirportDesk',
+    'HomeDesk','HomeEnter','HomeLeave','WestwoodHomeDesk','WestwoodHomeEnter','WestwoodHomeInside','WestwoodHomeLeave',
+    'NorthHillHomeDesk','NorthHillHomeEnter','NorthHillHomeInside','NorthHillHomeLeave','AutohausBusiness','CourierBusiness'}
 assert required<=marker_names,required-marker_names
 assert workspace.findtext("Properties/bool[@name='StreamingEnabled']")=='true'
+traffic=child(city,'TrafficLights')
+signals=[x for x in traffic.findall('Item') if x.get('class')=='Model' and name(x)=='Signal']
+assert len(signals)>=10
+for signal in signals:
+    assert {'Red','Amber','Green'} <= {name(x) for x in signal.findall('Item')}
 assert len({x.get('referent') for x in items})==len(items)
 for branch,folder in [('shared',child(child(root,'ReplicatedStorage'),'Shared')),('server',child(child(root,'ServerScriptService'),'Server')),('client',child(child(child(root,'StarterPlayer'),'StarterPlayerScripts'),'Client'))]:
     for path in (root_dir/'src'/branch).glob('*.lua'):
@@ -37,7 +44,7 @@ for marker_name in ('BankTerminal','BankLoot','PrisonLaundry','PrisonExit','Tunn
     # A player approaches the south face from 5 studs away at standing center height.
     approach=(x,max(y,3),z+5)
     assert not any(inside(approach,obj,c,s,0.3) for obj,c,s in solid),f'Blocked approach: {marker_name}'
-for point in [(-84,4,-47),(-84,4,-43),(84,4,-55),(84,4,-51),(-85,4,119),(-85,4,123),(-267,4,115)]:
+for point in [(-84,4,-47),(-84,4,-43),(84,4,-55),(84,4,-51),(-85,4,119),(-85,4,123),(-267,4,115),(390,4,372),(390,4,376),(-350,4,277),(320,4,-316)]:
     assert not any(inside(point,obj,c,s,0.2) for obj,c,s in solid),f'Blocked entrance: {point}'
 for x in range(0,136,5):
     assert not any(inside((x,-10,-367),obj,c,s,0.2) for obj,c,s in solid),'Tunnel obstructed'

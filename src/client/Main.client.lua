@@ -58,7 +58,7 @@ end
 network.Notify.OnClientEvent:Connect(notify)
 local mapInstances={}; local waypoint=nil; local waypointPart=nil
 local function mapPosition(x,z) return (x-Config.Map.MinX)/(Config.Map.MaxX-Config.Map.MinX),(z-Config.Map.MinZ)/(Config.Map.MaxZ-Config.Map.MinZ) end
-local names={Spawn="Náměstí",Police="Policie",Garage="Garáž",Bank="Banka",Prison="Vězení",Docks="Přístav",Apartment="Byt",Depot="Depo"}
+local names={Spawn="Náměstí",Police="Policie",Garage="Garáž",Bank="Banka",Prison="Vězení",Docks="Přístav",Apartment="Marina",Depot="Depo",Jewelry="Klenotnictví",School="Škola",Industrial="Průmysl",Airport="Letiště",WestwoodHome="Westwood",NorthHillHome="North Hill"}
 local function setWaypoint(key)
     waypoint=key
     if waypointPart then waypointPart:Destroy(); waypointPart=nil end
@@ -71,17 +71,26 @@ local function setWaypoint(key)
 end
 local function makeMap(parent,pos,size,full)
     local f=frame(parent,pos,size,Color3.fromRGB(35,52,62)); f.ClipsDescendants=true
+    local spanX=Config.Map.MaxX-Config.Map.MinX; local spanZ=Config.Map.MaxZ-Config.Map.MinZ
     local function rectangle(x,z,w,d,color)
         local mx,mz=mapPosition(x-w/2,z-d/2)
-        create("Frame",f,{Position=UDim2.fromScale(mx,mz),Size=UDim2.fromScale(w/860,d/865),BorderSizePixel=0,BackgroundColor3=color})
+        create("Frame",f,{Position=UDim2.fromScale(mx,mz),Size=UDim2.fromScale(w/spanX,d/spanZ),BorderSizePixel=0,BackgroundColor3=color})
     end
-    rectangle(378,0,102,800,Color3.fromRGB(48,88,108))
+    rectangle(448,0,102,995,Color3.fromRGB(48,88,108))
     for _,v in ipairs({-180,0,180}) do rectangle(v,40,36,720,Color3.fromRGB(97,115,120)); rectangle(0,v,640,36,Color3.fromRGB(97,115,120)) end
     rectangle(0,-359,204,150,Color3.fromRGB(86,96,104))
+    rectangle(395,170,42,260,Color3.fromRGB(56,62,69))
+    if full then
+        for _,district in ipairs({{"WESTWOOD",-340,245},{"DOWNTOWN",0,35},{"INDUSTRIAL",-430,115},{"NORTH HILLS",320,-390},{"PORT",270,80},{"AIRPORT",393,350},{"SOUTH COAST",40,370}}) do
+            local x,z=mapPosition(district[2],district[3])
+            local tag=text(f,district[1],UDim2.fromScale(x-0.08,z-0.025),UDim2.fromScale(0.16,0.05),{Size=10,Bold=true,Center=true,Color=palette.Text})
+            tag.TextTransparency=0.12
+        end
+    end
     for key,loc in pairs(Config.Locations) do
         if names[key] then
             local x,z=mapPosition(loc[1],loc[3])
-            local mark=button(f,full and names[key] or "•",UDim2.fromScale(x,z),full and UDim2.fromOffset(75,24) or UDim2.fromOffset(15,15),function() setWaypoint(key) end,palette.Panel)
+            local mark=button(f,full and names[key] or "•",UDim2.fromScale(x,z),full and UDim2.fromOffset(47,19) or UDim2.fromOffset(15,15),function() setWaypoint(key) end,palette.Panel)
             mark.AnchorPoint=Vector2.new(0.5,0.5); mark.TextSize=full and 10 or 17; mark.TextColor3=key=="Prison" and palette.Gold or palette.Teal
         end
     end
@@ -92,106 +101,162 @@ local mini=makeMap(gui,UDim2.new(0,20,1,-207),UDim2.fromOffset(185,185),false)
 local navigation=text(gui,"",UDim2.new(0,219,1,-65),UDim2.fromOffset(305,36),{Size=13,Wrap=true,Color=palette.Teal})
 local speed=text(gui,"",UDim2.new(1,-320,1,-235),UDim2.fromOffset(296,45),{Size=30,Bold=true})
 local carHealth=text(gui,"",UDim2.new(1,-320,1,-193),UDim2.fromOffset(296,23),{Size=13,Color=palette.Muted})
-local panel=frame(gui,UDim2.new(0.5,-330,0.5,-258),UDim2.fromOffset(660,516)); panel.Visible=false
-local panelTitle=text(panel,"CITY / OS",UDim2.fromOffset(24,13),UDim2.fromOffset(540,36),{Size=22,Bold=true})
-local content=frame(panel,UDim2.fromOffset(20,138),UDim2.fromOffset(620,356),palette.Bg)
-local currentPanel=nil; local panelRefresh=nil
-button(panel,"×",UDim2.fromOffset(603,16),UDim2.fromOffset(36,34),function() panel.Visible=false end)
+local panel=frame(gui,UDim2.new(1,-16,0.5,0),UDim2.fromOffset(368,620),Color3.fromRGB(6,10,16)); panel.AnchorPoint=Vector2.new(1,0.5); panel.Visible=false; corner(panel,38)
+create("UIStroke",panel,{Thickness=2,Color=Color3.fromRGB(94,112,126),Transparency=0.18})
+local phone=frame(panel,UDim2.fromOffset(8,8),UDim2.fromOffset(352,604),palette.Bg); corner(phone,32)
+local phoneTime=text(phone,"",UDim2.fromOffset(18,9),UDim2.fromOffset(100,18),{Size=11,Bold=true,Color=palette.Muted})
+corner(create("Frame",phone,{Position=UDim2.new(0.5,-48,0,7),Size=UDim2.fromOffset(96,19),BackgroundColor3=Color3.fromRGB(5,8,12),BorderSizePixel=0}),10)
+text(phone,"••• ▮",UDim2.new(1,-66,0,7),UDim2.fromOffset(50,20),{Size=10,Bold=true,Center=true,Color=palette.Teal})
+local panelTitle=text(phone,"HARBOR MOBILE",UDim2.fromOffset(17,31),UDim2.fromOffset(260,32),{Size=19,Bold=true})
+local content=frame(phone,UDim2.fromOffset(14,145),UDim2.fromOffset(324,438),palette.Panel); corner(content,20)
+local panelRefresh=nil
+button(phone,"×",UDim2.fromOffset(309,34),UDim2.fromOffset(27,27),function() panel.Visible=false end)
 local openPanel
 local function clearContent()
     for _,child in ipairs(content:GetChildren()) do if not child:IsA("UICorner") then child:Destroy() end end
     panelRefresh=nil
 end
-local function description(value,y) return text(content,value,UDim2.fromOffset(16,y),UDim2.fromOffset(586,42),{Size=14,Color=palette.Muted,Wrap=true}) end
+local function description(value,y,height)
+    return text(content,value,UDim2.fromOffset(13,y),UDim2.fromOffset(294,height or 43),{Size=13,Color=palette.Muted,Wrap=true})
+end
 local function send(action,value) Action:FireServer(action,value) end
+local labels={Home="DOMŮ",Map="MAPA",Garage="AUTA",Jobs="PRÁCE",Bank="BANKA",Police="POLICIE",HomeApp="NEMOVITOSTI",Business="PODNIKÁNÍ",Settings="NASTAVENÍ"}
 openPanel=function(name)
-    currentPanel=name; panel.Visible=true; clearContent(); panelTitle.Text="CITY / OS    ·    "..({Map="MAPA",Garage="GARÁŽ",Bank="BANKA",Jobs="PRÁCE",Police="DISPEČINK",Home="BYT",Settings="NASTAVENÍ"})[name]
+    panel.Visible=true; clearContent(); panelTitle.Text="HARBOR MOBILE  /  "..(labels[name] or "APLIKACE")
     if name=="Map" then
-        makeMap(content,UDim2.fromOffset(12,12),UDim2.fromOffset(596,306),true)
-        text(content,"Klikni na místo a zapni navigaci.",UDim2.fromOffset(16,319),UDim2.fromOffset(586,26),{Size=13,Color=palette.Muted})
+        makeMap(content,UDim2.fromOffset(8,12),UDim2.fromOffset(308,355),true)
+        description("Kliknutím na značku nastavíš navigaci. M • domů",374,40)
     elseif name=="Garage" then
-        description("Vůz vyzvedneš u ASTER Autohaus. Policejní auto čeká u stanice.",4)
-        local info={}
-        for i,id in ipairs({"commuter","sport","patrol"}) do
-            local spec=Config.Vehicles[id]; local row=frame(content,UDim2.fromOffset(12,52+(i-1)*68),UDim2.fromOffset(596,59),palette.Card)
-            text(row,spec.Name,UDim2.fromOffset(12,7),UDim2.fromOffset(220,24),{Bold=true,Size=16})
-            info[id]=text(row,"",UDim2.fromOffset(12,31),UDim2.fromOffset(330,20),{Size=12,Color=palette.Muted})
-            button(row,"Koupit",UDim2.fromOffset(364,10),UDim2.fromOffset(95,38),function() send("buyCar",id) end)
-            button(row,"Vyzvednout",UDim2.fromOffset(469,10),UDim2.fromOffset(115,38),function() send("spawnCar",id) end)
+        description("ASTER AUTOHAUS · vyber si městský vůz.",8,37)
+        local rows={}
+        for i,id in ipairs({"commuter","sport","suv","muscle","van","patrol"}) do
+            local spec=Config.Vehicles[id]
+            local row=frame(content,UDim2.fromOffset(8,47+(i-1)*55),UDim2.fromOffset(308,49),palette.Card)
+            text(row,spec.Name,UDim2.fromOffset(8,2),UDim2.fromOffset(134,20),{Bold=true,Size=12})
+            rows[id]=text(row,"",UDim2.fromOffset(8,24),UDim2.fromOffset(116,18),{Size=11,Color=palette.Muted})
+            button(row,"Koupit",UDim2.fromOffset(179,6),UDim2.fromOffset(58,36),function() send("buyCar",id) end)
+            button(row,"Vzít",UDim2.fromOffset(240,6),UDim2.fromOffset(59,36),function() send("spawnCar",id) end)
         end
-        text(content,"LAK / $150 · vystup z auta u garáže",UDim2.fromOffset(16,264),UDim2.fromOffset(550,24),{Size=13,Color=palette.Muted})
-        local colors={Color3.fromRGB(68,155,173),Color3.fromRGB(239,171,79),Color3.fromRGB(214,219,225),Color3.fromRGB(32,37,49),Color3.fromRGB(162,68,68),Color3.fromRGB(126,151,106)}
-        for i,col in ipairs(colors) do button(content,tostring(i),UDim2.fromOffset(16+(i-1)*58,299),UDim2.fromOffset(48,37),function() send("color",i) end,col) end
         panelRefresh=function()
-            for id,label in pairs(info) do local spec=Config.Vehicles[id]; label.Text=spec.Police and "Služební vozidlo · pouze policie" or state.Cars[id] and "Ve tvé garáži" or "Cena "..cash(spec.Price) end
+            for id,label in pairs(rows) do local spec=Config.Vehicles[id]; label.Text=spec.Police and "Jen pro policii" or state.Cars[id] and "Ve vlastnictví" or cash(spec.Price) end
         end
     elseif name=="Bank" then
-        local balance=text(content,"",UDim2.fromOffset(16,10),UDim2.fromOffset(586,35),{Size=22,Bold=true})
-        local amount=input(content,"Částka",UDim2.fromOffset(16,59),UDim2.fromOffset(242,40))
-        button(content,"Vložit",UDim2.fromOffset(274,59),UDim2.fromOffset(150,40),function() send("deposit",tonumber(amount.Text)) end)
-        button(content,"Vybrat",UDim2.fromOffset(438,59),UDim2.fromOffset(166,40),function() send("withdraw",tonumber(amount.Text)) end)
-        local history=text(content,"",UDim2.fromOffset(16,116),UDim2.fromOffset(586,225),{Size=14,Wrap=true}); history.TextYAlignment=Enum.TextYAlignment.Top
+        local balance=text(content,"",UDim2.fromOffset(12,9),UDim2.fromOffset(293,41),{Size=16,Bold=true,Wrap=true})
+        local amount=input(content,"Částka",UDim2.fromOffset(12,56),UDim2.fromOffset(122,38))
+        button(content,"Vložit",UDim2.fromOffset(142,56),UDim2.fromOffset(75,38),function() send("deposit",tonumber(amount.Text)) end)
+        button(content,"Vybrat",UDim2.fromOffset(223,56),UDim2.fromOffset(88,38),function() send("withdraw",tonumber(amount.Text)) end)
+        local history=text(content,"",UDim2.fromOffset(12,112),UDim2.fromOffset(294,296),{Size=12,Wrap=true}); history.TextYAlignment=Enum.TextYAlignment.Top
         panelRefresh=function()
-            balance.Text="ÚČET "..cash(state.Bank).."    /    HOTOVOST "..cash(state.Cash)
+            balance.Text="ÚČET  "..cash(state.Bank).."\nHOTOVOST  "..cash(state.Cash)
             local lines={"POSLEDNÍ TRANSAKCE"}
-            for i,t in ipairs(state.Transactions) do if i>8 then break end; table.insert(lines,t.Label.."     "..(t.Amount>0 and "+" or "")..cash(t.Amount)) end
+            for i,t in ipairs(state.Transactions) do if i>9 then break end; table.insert(lines,t.Label.."     "..(t.Amount>0 and "+" or "")..cash(t.Amount)) end
             history.Text=table.concat(lines,"\n\n")
         end
     elseif name=="Jobs" then
-        description("ROZVOZ: vyzvedni zásilku v depu a doruč ji do přístavu. Odměna $450.",8)
-        button(content,"Navigace do depa",UDim2.fromOffset(16,64),UDim2.fromOffset(250,40),function() setWaypoint("Depot") end)
-        button(content,"Vyzvednout / u depa",UDim2.fromOffset(281,64),UDim2.fromOffset(322,40),function() send("job") end)
-        button(content,"Zrušit rozvoz",UDim2.fromOffset(16,116),UDim2.fromOffset(250,36),function() send("cancelJob") end)
-        description("POLICIE: práci změníš u přepážky na stanici. Zatýkej hledané hráče; služba přináší pravidelnou výplatu.",171)
-        button(content,"Navigace na stanici",UDim2.fromOffset(16,231),UDim2.fromOffset(270,40),function() setWaypoint("Police") end)
-        button(content,"Nastoupit službu",UDim2.fromOffset(302,231),UDim2.fromOffset(301,40),function() send("role","Police") end)
-        button(content,"Zpět na civilistu",UDim2.fromOffset(302,285),UDim2.fromOffset(301,40),function() send("role","Civilian") end)
+        description("ROZVOZ · odměna $450",5,25)
+        button(content,"Najít depo",UDim2.fromOffset(12,36),UDim2.fromOffset(144,39),function() setWaypoint("Depot") end)
+        button(content,"Vyzvednout",UDim2.fromOffset(169,36),UDim2.fromOffset(142,39),function() send("job") end)
+        button(content,"Zrušit rozvoz",UDim2.fromOffset(12,82),UDim2.fromOffset(299,35),function() send("cancelJob") end)
+        description("BANKA · až 4 hráči · $3 800",128,30)
+        button(content,"Najít banku",UDim2.fromOffset(12,160),UDim2.fromOffset(144,38),function() setWaypoint("Bank") end)
+        button(content,"Začít loupež",UDim2.fromOffset(169,160),UDim2.fromOffset(142,38),function() send("startHeist","bank") end)
+        description("KLENOTNICTVÍ · $2 900",209,28)
+        button(content,"Najít obchod",UDim2.fromOffset(12,239),UDim2.fromOffset(144,38),function() setWaypoint("Jewelry") end)
+        button(content,"Začít loupež",UDim2.fromOffset(169,239),UDim2.fromOffset(142,38),function() send("startHeist","jewelry") end)
+        description("PANCÉŘOVÁ DODÁVKA · $2 300",288,34)
+        button(content,"Najít sklady",UDim2.fromOffset(12,324),UDim2.fromOffset(144,38),function() setWaypoint("Industrial") end)
+        button(content,"Začít loupež",UDim2.fromOffset(169,324),UDim2.fromOffset(142,38),function() send("startHeist","convoy") end)
     elseif name=="Police" then
-        description("Pouta fungují do 11 studů: musíš zůstat u hledaného hráče 3 sekundy. Databázi vidí jen policie.",5)
-        local rosterFrame=create("ScrollingFrame",content,{Position=UDim2.fromOffset(12,59),Size=UDim2.fromOffset(596,280),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,CanvasSize=UDim2.fromOffset(0,0)})
+        description("POLICEJNÍ PRÁCE",8,25)
+        button(content,"Najít stanici",UDim2.fromOffset(12,42),UDim2.fromOffset(144,38),function() setWaypoint("Police") end)
+        button(content,"Nastoupit službu",UDim2.fromOffset(169,42),UDim2.fromOffset(142,38),function() send("role","Police") end)
+        button(content,"Zpět na civilistu",UDim2.fromOffset(12,87),UDim2.fromOffset(299,38),function() send("role","Civilian") end)
+        description("Pouta: 11 studů. Zůstaň u hledaného hráče 3 sekundy. Databázi vidí pouze policie.",136,52)
+        local rosterFrame=create("ScrollingFrame",content,{Position=UDim2.fromOffset(10,194),Size=UDim2.fromOffset(304,219),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=4,CanvasSize=UDim2.fromOffset(0,0)})
         local previous=""
         panelRefresh=function()
             local signature=state.Role
             for _,record in ipairs(state.Roster) do signature=signature..record.Id..":"..record.Wanted end
             if signature==previous then return end; previous=signature
             for _,child in ipairs(rosterFrame:GetChildren()) do child:Destroy() end
-            if state.Role~="Police" then text(rosterFrame,"Přístup pouze pro policisty ve službě.",UDim2.fromOffset(8,8),UDim2.fromOffset(575,50),{Wrap=true}); return end
-            if #state.Roster==0 then text(rosterFrame,"Momentálně není nikdo hledaný.",UDim2.fromOffset(8,8),UDim2.fromOffset(575,50),{Wrap=true}) end
+            if state.Role~="Police" then text(rosterFrame,"Přístup pro policisty ve službě.",UDim2.fromOffset(8,8),UDim2.fromOffset(285,50),{Wrap=true}); return end
+            if #state.Roster==0 then text(rosterFrame,"Nikdo není hledaný.",UDim2.fromOffset(8,8),UDim2.fromOffset(285,42),{Wrap=true}) end
             for i,record in ipairs(state.Roster) do
-                text(rosterFrame,record.Name.."  ·  "..record.Wanted.." ★",UDim2.fromOffset(8,(i-1)*52),UDim2.fromOffset(397,44),{Size=16})
-                button(rosterFrame,"Zatknout",UDim2.fromOffset(435,(i-1)*52+4),UDim2.fromOffset(146,37),function() send("arrest",record.Id) end)
+                text(rosterFrame,record.Name.." · "..record.Wanted.." ★",UDim2.fromOffset(5,(i-1)*45),UDim2.fromOffset(161,40),{Size=13})
+                button(rosterFrame,"Zatknout",UDim2.fromOffset(172,(i-1)*45+4),UDim2.fromOffset(121,34),function() send("arrest",record.Id) end)
             end
-            rosterFrame.CanvasSize=UDim2.fromOffset(0,#state.Roster*52)
+            rosterFrame.CanvasSize=UDim2.fromOffset(0,#state.Roster*45)
         end
-    elseif name=="Home" then
-        description("Marina Residence • $18 000. V alfě je interiér společný; vlastnictví a pozvánky spravuje server.",7)
-        local ownership=text(content,"",UDim2.fromOffset(16,52),UDim2.fromOffset(586,26),{Bold=true})
-        button(content,"Koupit u recepce",UDim2.fromOffset(16,91),UDim2.fromOffset(278,39),function() send("homeBuy") end)
-        button(content,"Navigace",UDim2.fromOffset(309,91),UDim2.fromOffset(295,39),function() setWaypoint("Apartment") end)
-        button(content,"Povolit / zamknout pozvánky",UDim2.fromOffset(16,145),UDim2.fromOffset(588,38),function() send("homeLock") end)
-        local guest=input(content,"Přesné uživatelské jméno hráče",UDim2.fromOffset(16,199),UDim2.fromOffset(395,40))
-        button(content,"Pozvat",UDim2.fromOffset(424,199),UDim2.fromOffset(180,40),function()
+    elseif name=="HomeApp" then
+        description("Tři skutečné domy s vlastními vchody a interiéry. Nákup potvrď u jejich recepce.",8,42)
+        local ownership=text(content,"",UDim2.fromOffset(12,52),UDim2.fromOffset(295,22),{Bold=true,Size=12})
+        local rows={}
+        for i,id in ipairs({"marina","westwood","northhill"}) do
+            local spec=Config.Properties[id]; local row=frame(content,UDim2.fromOffset(8,77+(i-1)*55),UDim2.fromOffset(308,49),palette.Card)
+            text(row,spec.Name,UDim2.fromOffset(8,3),UDim2.fromOffset(146,19),{Bold=true,Size=12})
+            rows[id]=text(row,"",UDim2.fromOffset(8,24),UDim2.fromOffset(144,17),{Size=11,Color=palette.Muted})
+            button(row,"Mapa",UDim2.fromOffset(173,7),UDim2.fromOffset(56,34),function() setWaypoint(spec.MapLocation) end)
+            button(row,"Koupit",UDim2.fromOffset(235,7),UDim2.fromOffset(64,34),function() send("homeBuy",id) end)
+        end
+        button(content,"Povolit / zamknout pozvánky",UDim2.fromOffset(12,247),UDim2.fromOffset(299,34),function() send("homeLock") end)
+        local guest=input(content,"Uživatelské jméno hráče",UDim2.fromOffset(12,288),UDim2.fromOffset(189,35))
+        button(content,"Pozvat",UDim2.fromOffset(207,288),UDim2.fromOffset(104,35),function()
             for _,other in ipairs(Players:GetPlayers()) do if string.lower(other.Name)==string.lower(guest.Text) then send("homeInvite",other.UserId); return end end
-            notify("Tento hráč na serveru není.")
+            notify("Tento hráč není na serveru.")
         end)
-        button(content,"Přijmout pozvánku",UDim2.fromOffset(16,256),UDim2.fromOffset(588,40),function() send("homeAccept") end)
-        panelRefresh=function() ownership.Text=state.Home and ("BYT VLASTNÍŠ · "..(state.HomeLocked and "pozvánky zamčené" or "pozvánky povolené")) or "Zatím nevlastníš byt." end
+        button(content,"Přijmout domácí pozvánku",UDim2.fromOffset(12,330),UDim2.fromOffset(299,36),function() send("homeAccept") end)
+        panelRefresh=function()
+            local count=0
+            for id,label in pairs(rows) do local owned=(state.Homes and state.Homes[id]) or (id=="marina" and state.Home); label.Text=owned and "Ve vlastnictví" or cash(Config.Properties[id].Price); if owned then count=count+1 end end
+            ownership.Text=count>0 and (count.." / 3 nemovitostí · "..(state.HomeLocked and "zamčené" or "otevřené pozvánky")) or "Zatím nemáš vlastní dům."
+        end
+    elseif name=="Business" then
+        description("Kup firmu na její pobočce. Každé 3 minuty přidá zisk na bankovní účet.",8,48)
+        local rows={}
+        for i,id in ipairs({"courier","autohaus"}) do
+            local spec=Config.Businesses[id]; local y=68+(i-1)*82
+            local row=frame(content,UDim2.fromOffset(8,y),UDim2.fromOffset(308,72),palette.Card)
+            text(row,spec.Name,UDim2.fromOffset(10,4),UDim2.fromOffset(284,22),{Bold=true,Size=12})
+            rows[id]=text(row,"",UDim2.fromOffset(10,28),UDim2.fromOffset(284,17),{Size=11,Color=palette.Muted})
+            button(row,"Najít místo",UDim2.fromOffset(10,49),UDim2.fromOffset(132,18),function() setWaypoint(id=="courier" and "Depot" or "Garage") end)
+            button(row,"Koupit firmu",UDim2.fromOffset(151,49),UDim2.fromOffset(146,18),function() send("buyBusiness",id) end)
+        end
+        description("Výnosy se ukládají do banky i do historie transakcí.",244,45)
+        panelRefresh=function() for id,label in pairs(rows) do local spec=Config.Businesses[id]; label.Text=state.Businesses and state.Businesses[id] and ("VLASTNÍŠ · +"..cash(spec.Income).." / 3 min") or ("Investice "..cash(spec.Price).." · "..cash(spec.Income).." každé 3 min") end end
     elseif name=="Settings" then
-        description("ALFA "..Config.Version.." · engine testy v Roblox Studiu zatím nepotvrzené.",4)
-        local mode=text(content,"",UDim2.fromOffset(16,55),UDim2.fromOffset(586,38),{Size=15,Wrap=true,Color=palette.Gold})
-        button(content,"Omezit stíny / výkon",UDim2.fromOffset(16,115),UDim2.fromOffset(588,42),function() Lighting.GlobalShadows=not Lighting.GlobalShadows; notify(Lighting.GlobalShadows and "Stíny zapnuté." or "Stíny vypnuté.") end)
-        button(content,"Vypnout navigaci",UDim2.fromOffset(16,172),UDim2.fromOffset(588,42),function() waypoint=nil; if waypointPart then waypointPart:Destroy(); waypointPart=nil end end)
-        description("WASD pohyb / jízda · E interakce · Shift běh · P telefon · M mapa · L světla · Q blinkry · B policejní majáky · mezerník vystoupit",232)
+        description("ALFA "..Config.Version.." · ukládání ve Studiu je vypnuté.",10,49)
+        local mode=text(content,"",UDim2.fromOffset(12,61),UDim2.fromOffset(296,46),{Size=12,Wrap=true,Color=palette.Gold})
+        button(content,"Přepnout stíny",UDim2.fromOffset(12,120),UDim2.fromOffset(299,39),function() Lighting.GlobalShadows=not Lighting.GlobalShadows; notify(Lighting.GlobalShadows and "Stíny zapnuté." or "Stíny vypnuté.") end)
+        button(content,"Vypnout navigaci",UDim2.fromOffset(12,165),UDim2.fromOffset(299,39),function() waypoint=nil; if waypointPart then waypointPart:Destroy(); waypointPart=nil end end)
+        description("WASD · E interakce · Shift běh · L světla · Q blinkry · B majáky · mezerník vystoupit",225,95)
         panelRefresh=function() mode.Text="DATA: "..(state.SaveMode or "načítání") end
+    else
+        local hello=text(content,"",UDim2.fromOffset(14,14),UDim2.fromOffset(293,61),{Size=18,Bold=true,Wrap=true})
+        local balance=text(content,"",UDim2.fromOffset(14,82),UDim2.fromOffset(293,45),{Size=14,Color=palette.Teal,Wrap=true})
+        description("VYBER APLIKACI",144,23)
+        for i,entry in ipairs({{"Map","MAPA"},{"Garage","AUTA"},{"Jobs","PRÁCE"},{"Bank","BANKA"},{"Police","POLICIE"},{"HomeApp","DOMY"},{"Business","FIRMY"}}) do
+            local col=(i-1)%3; local row=math.floor((i-1)/3)
+            local app=button(content,entry[2],UDim2.fromOffset(13+col*99,174+row*84),UDim2.fromOffset(91,70),function() openPanel(entry[1]) end,palette.Card)
+            app.TextSize=13; app.Font=Enum.Font.GothamBold
+        end
+        button(content,"NASTAVENÍ",UDim2.fromOffset(13,345),UDim2.fromOffset(289,39),function() openPanel("Settings") end)
+        panelRefresh=function() hello.Text="Ahoj, "..player.DisplayName; balance.Text="ÚČET  "..cash(state.Bank).."   ·   HOTOVOST  "..cash(state.Cash) end
     end
     if panelRefresh then panelRefresh() end
 end
-for i,entry in ipairs({{"Map","Mapa"},{"Garage","Garáž"},{"Bank","Banka"},{"Jobs","Práce"},{"Police","Policie"},{"Home","Byt"},{"Settings","Nastavení"}}) do
+for i,entry in ipairs({{"Map","MAPA"},{"Garage","AUTA"},{"Jobs","PRÁCE"},{"Bank","BANKA"},{"Police","POLICIE"},{"HomeApp","DOMY"},{"Business","FIRMY"},{"Settings","NAST."}}) do
     local col=(i-1)%4; local row=math.floor((i-1)/4)
-    button(panel,entry[2],UDim2.fromOffset(20+col*156,61+row*34),UDim2.fromOffset(149,29),function() openPanel(entry[1]) end)
+    local tab=button(phone,entry[2],UDim2.fromOffset(13+col*81,74+row*32),UDim2.fromOffset(77,27),function() openPanel(entry[1]) end,palette.Card)
+    tab.TextSize=10
 end
-button(top,"TELEFON",UDim2.new(1,-112,0,16),UDim2.fromOffset(98,34),function() if panel.Visible then panel.Visible=false else openPanel("Map") end end)
-network.OpenPanel.OnClientEvent:Connect(openPanel)
+button(top,"TELEFON",UDim2.new(1,-112,0,16),UDim2.fromOffset(98,34),function() if panel.Visible then panel.Visible=false else openPanel("Home") end end)
+network.OpenPanel.OnClientEvent:Connect(function(name) openPanel(name=="Home" and "HomeApp" or name) end)
+local phoneScale=create("UIScale",panel,{Scale=1})
+local function resizePhone()
+    local camera=workspace.CurrentCamera
+    if camera then phoneScale.Scale=math.clamp(math.min((camera.ViewportSize.X-24)/384,(camera.ViewportSize.Y-30)/636),0.58,1) end
+end
+resizePhone(); workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(resizePhone)
 local controlFrame=frame(gui,UDim2.new(1,-312,1,-162),UDim2.fromOffset(292,140)); controlFrame.Visible=false
 button(controlFrame,"Světla / L",UDim2.fromOffset(10,10),UDim2.fromOffset(132,33),function() send("lights") end)
 button(controlFrame,"Blinkry / Q",UDim2.fromOffset(150,10),UDim2.fromOffset(132,33),function() send("signal") end)
@@ -205,7 +270,8 @@ local sprint=false
 button(gui,"BĚH",UDim2.new(1,-118,1,-218),UDim2.fromOffset(98,36),function() sprint=not sprint; send("sprint",sprint) end).Visible=UIS.TouchEnabled
 -- Heist minigame: the server creates the sequence and enforces timing and step order.
 local hack=frame(gui,UDim2.new(0.5,-220,0.5,-145),UDim2.fromOffset(440,290)); hack.Visible=false
-text(hack,"CIVIC / SECURITY",UDim2.fromOffset(22,15),UDim2.fromOffset(396,32),{Size=21,Bold=true})
+local hackScale=create("UIScale",hack,{Scale=1})
+local hackTitle=text(hack,"CIVIC / SECURITY",UDim2.fromOffset(22,15),UDim2.fromOffset(396,32),{Size=21,Bold=true})
 local hackHint=text(hack,"",UDim2.fromOffset(22,58),UDim2.fromOffset(396,88),{Size=20,Center=true,Wrap=true,Color=palette.Teal})
 local hackStatus=text(hack,"",UDim2.fromOffset(22,246),UDim2.fromOffset(396,26),{Size=13,Center=true,Color=palette.Muted})
 local symbols={"▲","●","■","◆"}; local hackReady=false; local hackVersion=0
@@ -213,10 +279,10 @@ for i,symbol in ipairs(symbols) do button(hack,symbol,UDim2.fromOffset(22+(i-1)*
 network.Hack.OnClientEvent:Connect(function(message)
     if message.Close then hackVersion=hackVersion+1; hack.Visible=false; hackReady=false; return end
     if message.Sequence then
-        hackVersion=hackVersion+1; local version=hackVersion; hack.Visible=true; panel.Visible=false; hackReady=false
+        hackVersion=hackVersion+1; hackScale.Scale=math.clamp(math.min((workspace.CurrentCamera.ViewportSize.X-24)/464,(workspace.CurrentCamera.ViewportSize.Y-24)/314),0.58,1); local version=hackVersion; hack.Visible=true; panel.Visible=false; hackReady=false
         local shown={}; for _,v in ipairs(message.Sequence) do table.insert(shown,symbols[v]) end
-        hackHint.Text=table.concat(shown,"    "); hackStatus.Text="Zapamatuj si pořadí. Tlačítka se odemknou za "..message.Duration.." s."
-        task.delay(message.Duration,function() if version==hackVersion then hackReady=true; hackHint.Text="Zopakuj pořadí"; hackStatus.Text="Klikni na 4 symboly ve správném pořadí." end end)
+        hackTitle.Text=(message.Name or "LOUPEŽ"):upper(); hackHint.Text=table.concat(shown,"    "); hackStatus.Text="Zapamatuj si pořadí. Tlačítka se odemknou za "..message.Duration.." s."
+        task.delay(message.Duration,function() if version==hackVersion then hackReady=true; hackHint.Text="Zopakuj pořadí"; hackStatus.Text="Klikni na symboly ve správném pořadí." end end)
     elseif message.Reset then hackStatus.Text="Chyba "..message.Attempts.." / 3. Začni znovu."
     elseif message.Progress then hackStatus.Text="Správně: "..message.Progress.." / 4" end
 end)
@@ -226,7 +292,7 @@ network.State.OnClientEvent:Connect(function(new)
     stars.Text=string.rep("★",state.Wanted)..string.rep("☆",5-state.Wanted)
     if state.Jail>0 then objectiveText.Text="Trest: "..state.Jail.." s. "..(state.Key and "Máš kartu — najdi servisní dveře." or "Prádelna ukrývá kartu. Odtok je další možnost.")
     elseif state.Heist then
-        objectiveText.Text=state.Heist.Bag and "Dovez tašku do přístavu. Zbývá "..state.Heist.Seconds.." s." or state.Heist.Stage=="Hack" and "Odemkni bankovní terminál." or "Vezmi tašku z otevřeného trezoru."
+        objectiveText.Text=state.Heist.Bag and "Dovez kořist z mise „"..(state.Heist.Name or "loupež").."“ do přístavu. Zbývá "..state.Heist.Seconds.." s." or state.Heist.Stage=="Hack" and "Dokonči bezpečnostní minihru: "..(state.Heist.Name or "loupež").."." or "Vezmi kořist z otevřeného cíle."
     elseif state.Job then objectiveText.Text="Doruč zásilku do přístavu. Zbývá "..state.Job.Deadline.." s."
     elseif state.Wanted>0 then objectiveText.Text="Setřes policii. Hvězdičky klesají mimo dohled hlídek."
     else objectiveText.Text="Vyzvedni si auto v garáži. Vydělávej rozvozem nebo se vydej do banky." end
@@ -234,7 +300,7 @@ network.State.OnClientEvent:Connect(function(new)
 end)
 UIS.InputBegan:Connect(function(i,processed)
     if processed then return end
-    if i.KeyCode==Enum.KeyCode.P then if panel.Visible then panel.Visible=false else openPanel("Map") end
+    if i.KeyCode==Enum.KeyCode.P then if panel.Visible then panel.Visible=false else openPanel("Home") end
     elseif i.KeyCode==Enum.KeyCode.M then openPanel("Map")
     elseif i.KeyCode==Enum.KeyCode.L then send("lights")
     elseif i.KeyCode==Enum.KeyCode.Q then send("signal")
@@ -247,7 +313,8 @@ text(intro,"HARBOR CITY",UDim2.fromOffset(30,26),UDim2.fromOffset(470,52),{Size=
 text(intro,"MĚSTO. VOLBA. NÁSLEDKY.",UDim2.fromOffset(31,80),UDim2.fromOffset(468,24),{Size=12,Color=palette.Teal,Bold=true})
 text(intro,"První čtvrť je otevřená. Vyzvedni si Aster Compact, doruč zásilku nebo zkus bankovní loupež. Policie tě může poslat do Northgate — kde existují dvě cesty ven.",UDim2.fromOffset(30,120),UDim2.fromOffset(470,107),{Size=17,Wrap=true})
 text(intro,"VÝVOJOVÁ ALFA · neověřeno v Roblox enginu\nVe Studiu se postup záměrně neukládá.",UDim2.fromOffset(30,243),UDim2.fromOffset(470,49),{Size=13,Color=palette.Gold,Wrap=true})
-button(intro,"VSTOUPIT DO MĚSTA",UDim2.fromOffset(30,311),UDim2.fromOffset(470,47),function() intro.Visible=false; setWaypoint("Garage") end,palette.Card)
+button(intro,"VSTOUPIT DO MĚSTA",UDim2.fromOffset(30,311),UDim2.fromOffset(470,47),function() intro.Visible=false; setWaypoint("Garage"); openPanel("Home") end,palette.Card)
+local introScale=create("UIScale",intro,{Scale=1})
 -- Local weather: no third-party asset dependency. Roof ray prevents indoor rain.
 local rainPart=create("Part",workspace,{Name="LocalRain",Anchored=true,CanCollide=false,CanQuery=false,CanTouch=false,Transparency=1,Size=Vector3.new(50,1,50)})
 local rain=create("ParticleEmitter",rainPart,{Texture="rbxasset://textures/particles/sparkles_main.dds",Rate=0,Speed=NumberRange.new(65,75),Lifetime=NumberRange.new(0.45,0.6),EmissionDirection=Enum.NormalId.Bottom,SpreadAngle=Vector2.new(3,3),Size=NumberSequence.new(0.08),Transparency=NumberSequence.new(0.4),Color=ColorSequence.new(Color3.fromRGB(167,190,207)),LightInfluence=0.5})
@@ -260,6 +327,7 @@ RunService.RenderStepped:Connect(function(dt)
     local mx,mz=mapPosition(rootPart.Position.X,rootPart.Position.Z)
     for i=#mapInstances,1,-1 do local m=mapInstances[i]; if not m.Frame.Parent then table.remove(mapInstances,i) else m.Dot.Position=UDim2.fromScale(math.clamp(mx,0,1),math.clamp(mz,0,1)) end end
     if waypoint then local loc=Config.Locations[waypoint]; local distance=(rootPart.Position-Vector3.new(loc[1],loc[2],loc[3])).Magnitude; navigation.Text=(names[waypoint] or waypoint).." · "..math.floor(distance).." studů" else navigation.Text="" end
+    if panel.Visible then phoneTime.Text=string.format("%02d:%02d",math.floor(Lighting.ClockTime)%24,math.floor((Lighting.ClockTime%1)*60)); speed.Visible=false; carHealth.Visible=false else speed.Visible=true; carHealth.Visible=true end
     local seat=human.SeatPart; local driving=seat and seat:IsA("VehicleSeat") and seat.Parent:GetAttribute("OwnerId")==player.UserId
     controlFrame.Visible=driving or false
     speed.Text=driving and (math.floor(seat.AssemblyLinearVelocity.Magnitude*1.008).." km/h") or ""

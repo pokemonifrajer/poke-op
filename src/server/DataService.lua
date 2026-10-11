@@ -36,7 +36,7 @@ function Data:load(player)
         player:Kick("Data se nepodařilo bezpečně načíst. Zkus připojení znovu za chvíli; tvůj uložený postup se nepřepisuje.")
         return false
     end
-    self.Profiles[player] = {Data = envelope.Data, Ready = true, Mode = "Ukládání aktivní", LastSave = os.time()}
+    self.Profiles[player] = {Data = Domain.normalize(envelope.Data, Config), Ready = true, Mode = "Ukládání aktivní", LastSave = os.time()}
     return true
 end
 function Data:get(player)

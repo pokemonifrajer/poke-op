@@ -1,10 +1,10 @@
 {
   "title": "Harbor City",
-  "version": "0.1.0-alpha",
-  "instances": 2030,
-  "parts": 1888,
+  "version": "0.2.0-alpha",
+  "instances": 2633,
+  "parts": 2395,
   "scripts": 12,
-  "sha256": "b3c31e77dfc35ba74575b9b8caf6d6cdddadda7b8afd7ea1778b27327aa4eb86",
+  "sha256": "892e49c3fac3cfdb6d30a89df6d8d9fe493fab6982f100031385085a2a5df06e",
   "runtime_tested": false,
   "external_assets": 0
 }

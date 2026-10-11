@@ -44,6 +44,11 @@ test("release saves full snapshot and permits reconnect",function()
     assert(a:save(p,true)); eq(s.Value.Lock,nil)
     local b=dataModule(s,"B",false); local p2=player(1); assert(b:load(p2)); eq(b:get(p2).Cash,4800)
 end)
+test("old alpha profiles keep their marina and gain empty new ownership ledgers",function()
+    local s=memoryStore(); local old=Domain.default(Config); old.Home=true; old.Homes=nil; old.Businesses=nil; s.Value={Data=old}
+    local a=dataModule(s,"A",false); local p=player(1); assert(a:load(p)); local d=a:get(p)
+    assert(d.Home and Domain.ownsHome(d,"marina")); assert(type(d.Homes)=="table" and type(d.Businesses)=="table")
+end)
 test("stale server cannot overwrite a reclaimed session",function()
     local s=memoryStore(); local a=dataModule(s,"A",false); local p=player(1); assert(a:load(p))
     time=time+Config.SessionLease+1
@@ -64,7 +69,7 @@ test("save failure freezes the session instead of allowing new spending",functio
 end)
 local function heistFixture()
     local p,q=player(1),player(2); local profiles={[p]=Domain.default(Config),[q]=Domain.default(Config)}
-    local markers={BankTerminal={Position=0},VaultDoor={CanCollide=true,Transparency=0}}
+    local markers={BankTerminal={Position=0},JewelryTerminal={Position=0},ConvoyStart={Position=0},BankLoot={Position=0},JewelryLoot={Position=0},ConvoyLoot={Position=0},VaultDoor={CanCollide=true,Transparency=0},JewelryCaseDoor={CanCollide=true,Transparency=0},ConvoyCrate={CanCollide=true,Transparency=0},Dropoff={Position=0}}
     local env=setmetatable({},{__index=_G}); env.os={time=clock,clock=clock}
     env.script={Parent={Util="Util",Guard="Guard"}}
     env.workspace={City={Markers=markers},SetAttribute=function(self,key,val) self[key]=val end}
@@ -83,7 +88,7 @@ local function heistFixture()
     return h,p,q,profiles,markers,c,function(v) near=v end
 end
 local function unlock(h,p)
-    time=time+Config.Heist.HackSeconds+1
+    time=time+h.Active.Rules.HackSeconds+1
     local seq=Domain.copy(h.Active.Sequence)
     for _,choice in ipairs(seq) do h:input(p,choice); time=time+0.3 end
 end
@@ -100,9 +105,16 @@ test("full bank mission pays once only after loot and extraction",function()
     eq(h.Active.Stage,"Loot"); eq(m.VaultDoor.CanCollide,false); eq(d[p].Wanted,3); eq(d[q].Wanted,3)
     h:extract(p); eq(d[p].Cash,1500)
     h:collect(p); h:extract(p); eq(d[p].Cash,1500)
-    time=time+13; h:extract(p); eq(d[p].Cash,1500+Config.Heist.Reward)
-    h:extract(p); eq(d[p].Cash,1500+Config.Heist.Reward)
-    h:remove(q); eq(h.Active,nil); assert(h.CooldownUntil>time); eq(m.VaultDoor.CanCollide,true)
+    time=time+13; h:extract(p); eq(d[p].Cash,1500+Config.Heists.bank.Reward)
+    h:extract(p); eq(d[p].Cash,1500+Config.Heists.bank.Reward)
+    h:remove(q); eq(h.Active,nil); assert(h.Cooldowns.bank>time); eq(m.VaultDoor.CanCollide,true)
+end)
+test("jewelry and armored convoy use their own targets, rewards, and cooldowns",function()
+    for _,mode in ipairs({"jewelry","convoy"}) do
+        local h,p,q,d,m,c=heistFixture(); assert(h:start(p,mode)); eq(h.Active.Mode,mode); unlock(h,p); eq(h.Active.Stage,"Loot")
+        assert(m[Config.Heists[mode].LootMarker]); h:collect(p); time=time+Config.Heists[mode].MinEscapeSeconds+1; h:extract(p)
+        eq(d[p].Cash,1500+Config.Heists[mode].Reward); eq(h.Active,nil); assert(h.Cooldowns[mode]>time)
+    end
 end)
 test("three wrong sequences fail the mission without a reward",function()
     local h,p,q,d=heistFixture(); h:start(p); time=time+11
