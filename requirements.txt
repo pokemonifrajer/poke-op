@@ -1,0 +1,7 @@
+flask>=3,<4
+gunicorn>=22
+kokoro-onnx>=0.4.9
+soundfile>=0.12
+faster-whisper>=1.1
+numpy>=1.26
+yt-dlp>=2025.1
